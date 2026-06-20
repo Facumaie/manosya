@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ManosYa · Encontrá al profesional que necesitás</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = { theme: { extend: { colors: {
+    navy: '#0F2C5C', brand: '#2477C2', accent: '#2FA86A', surface: '#F5F7FA', line: '#E3E8EF', muted: '#5B6B82'
+  }, fontFamily: { sans: ['Inter','system-ui','sans-serif'] } } } };
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body{font-family:Inter,system-ui,sans-serif;background:#F5F7FA;color:#1A2231}
+  .grad{background:linear-gradient(135deg,#2477C2 0%,#2FA86A 100%)}
+  .grad-text{background:linear-gradient(135deg,#2477C2,#2FA86A);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .card{background:#fff;border:1px solid #E3E8EF99;border-radius:1rem;box-shadow:0 1px 2px rgba(15,44,92,.04),0 8px 24px rgba(15,44,92,.06)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;border-radius:.75rem;padding:.62rem 1rem;font-weight:600;font-size:.875rem;cursor:pointer;transition:.15s;border:0}
+  .btn-primary{color:#fff}.btn-primary.grad:hover{filter:brightness(1.05)}
+  .btn-ghost{background:#fff;color:#0F2C5C;border:1px solid #E3E8EF}.btn-ghost:hover{border-color:#3B92D9}
+  .btn-soft{background:#EAF3FB;color:#1E73BE}
+  .input{width:100%;border:1px solid #E3E8EF;border-radius:.75rem;padding:.6rem .9rem;font-size:.875rem;outline:0;background:#fff}
+  .input:focus{border-color:#3B92D9;box-shadow:0 0 0 3px #EAF3FB}
+  .chip{display:inline-flex;align-items:center;gap:.35rem;border:1px solid #E3E8EF;background:#fff;border-radius:999px;padding:.3rem .7rem;font-size:.72rem;font-weight:500;color:#0F2C5C}
+  .label{display:block;font-size:.8rem;font-weight:500;color:#0F2C5C;margin-bottom:.3rem}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+<header class="sticky top-0 z-40 border-b border-line bg-white/85 backdrop-blur">
+  <nav class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+    <a href="#/" class="flex items-center gap-2">
+      <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
+        <path d="M8 26c0-2 2-3 4-2l10 5c2 1 4 1 6 0l8-4c2-1 4 0 4 2 0 6-7 11-16 11S8 32 8 26Z" fill="url(#g)"/>
+        <path d="M14 22 24 12l10 10" stroke="url(#g)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="21" y="18" width="6" height="6" rx="1" fill="#0F2C5C"/>
+        <defs><linearGradient id="g" x1="8" y1="12" x2="40" y2="37"><stop stop-color="#2477C2"/><stop offset="1" stop-color="#2FA86A"/></linearGradient></defs>
+      </svg>
+      <span class="text-xl font-extrabold tracking-tight"><span class="text-navy">MANOS</span><span class="text-accent">YA</span></span>
+    </a>
+    <div id="nav-actions" class="flex items-center gap-2"></div>
+  </nav>
+</header>
+
+<main id="app" class="flex-1"></main>
+
+<footer class="border-t border-line bg-white">
+  <div class="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-7 text-sm text-muted sm:flex-row sm:justify-between">
+    <span>© <span id="year"></span> ManosYa · Hecho en Argentina 🇦🇷</span>
+    <span>Para clientes, usar ManosYa es 100% gratis.</span>
+  </div>
+</footer>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, collection, query, where, orderBy,
+  getDocs, runTransaction, serverTimestamp, writeBatch, increment }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC4oaS4Sx6LNtQ3IzTIIfvUA_OKHFyQHSI",
+  authDomain: "controldsed.firebaseapp.com",
+  projectId: "controldsed",
+  storageBucket: "controldsed.firebasestorage.app",
+  messagingSenderId: "440873188757",
+  appId: "1:440873188757:web:9bb646d94b1c0a30084a9c"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// ── Config / constantes ──────────────────────────────────────────────────
+const DEFAULTS = {
+  costs: { pequeno: 1, mediano: 2, urgente: 3 },
+  welcome: 2,            // créditos de bienvenida (debe coincidir con firestore.rules)
+  maxUnlocks: 4,         // tope de profesionales por solicitud
+  packages: [
+    { credits: 10, price: 4000 }, { credits: 25, price: 9000 },
+    { credits: 50, price: 16000 }, { credits: 100, price: 28000 },
+  ],
+};
+const CATEGORIES = [
+  ['plomeria','Plomería'],['electricidad','Electricidad'],['pintura','Pintura'],['albanileria','Albañilería'],
+  ['limpieza','Limpieza'],['jardineria','Jardinería'],['gas','Gasista'],['carpinteria','Carpintería'],
+  ['cerrajeria','Cerrajería'],['aire','Aire acondicionado'],['mudanzas','Fletes y mudanzas'],['herreria','Herrería'],
+];
+const SIZE_LABEL = { pequeno: 'Normal', mediano: 'Importante', urgente: 'Urgente / alto valor' };
+const TXN_LABEL = { compra:'Carga', consumo:'Desbloqueo', reembolso:'Reembolso', bonificacion:'Bienvenida', ajuste_admin:'Ajuste' };
+
+const ARS = n => new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}).format(n||0);
+const esc = s => (s??'').toString().replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const catName = slug => (CATEGORIES.find(c => c[0]===slug)||[,'—'])[1];
+const $ = id => document.getElementById(id);
+document.getElementById('year').textContent = new Date().getFullYear();
+
+// ── Estado global ────────────────────────────────────────────────────────
+let state = { user: null, profile: null, settings: DEFAULTS };
+
+async function loadSettings() {
+  try { const s = await getDoc(doc(db,'settings','credits'));
+    if (s.exists()) state.settings = { ...DEFAULTS, ...s.data() }; } catch {}
+}
+
+// ── Navegación ───────────────────────────────────────────────────────────
+function navActions() {
+  const el = $('nav-actions');
+  if (!state.user) {
+    el.innerHTML = `<a href="#/login" class="btn btn-ghost">Ingresar</a>
+      <a href="#/registro" class="btn btn-primary grad">Crear cuenta</a>`;
+    return;
+  }
+  const r = state.profile?.role;
+  const links = [];
+  if (r === 'cliente') links.push(`<a href="#/publicar" class="btn btn-soft">Publicar</a>`,`<a href="#/cliente" class="btn btn-ghost">Mis solicitudes</a>`);
+  if (r === 'profesional') links.push(`<a href="#/feed" class="btn btn-soft">Solicitudes</a>`,`<a href="#/wallet" class="btn btn-ghost">Mis créditos</a>`);
+  if (r === 'admin') links.push(`<a href="#/admin" class="btn btn-ghost">Admin</a>`);
+  el.innerHTML = links.join('') + `<button id="logout" class="btn btn-ghost">Salir</button>`;
+  $('logout').onclick = async () => { await signOut(auth); location.hash = '#/'; };
+}
+
+function go(hash){ location.hash = hash; }
+window.addEventListener('hashchange', router);
+
+function router() {
+  const h = (location.hash || '#/').slice(1);
+  const guard = (roles, view) => {
+    if (!state.user) return renderAuth('login');
+    if (roles && !roles.includes(state.profile?.role)) return renderHome();
+    return view();
+  };
+  if (h === '/' || h === '') return renderHome();
+  if (h === '/login') return renderAuth('login');
+  if (h === '/registro') return renderAuth('registro');
+  if (h === '/publicar') return guard(['cliente','admin'], renderPublicar);
+  if (h === '/cliente')  return guard(['cliente','admin'], renderClientePanel);
+  if (h === '/feed')     return guard(['profesional','admin'], renderProFeed);
+  if (h === '/wallet')   return guard(['profesional','admin'], renderProWallet);
+  if (h === '/admin')    return guard(['admin'], renderAdmin);
+  return renderHome();
+}
+
+// ── HOME ─────────────────────────────────────────────────────────────────
+function renderHome() {
+  const steps = [
+    ['📝','Publicá tu necesidad','Cargá tu solicitud gratis en menos de un minuto.'],
+    ['📨','Recibí propuestas','Profesionales verificados de tu zona te contactan.'],
+    ['⭐','Elegí con confianza','Compará calificaciones y elegí al que más te cierre.'],
+    ['🤝','Coordiná el trabajo','Contactalo y arreglá los detalles directamente.'],
+  ];
+  $('app').innerHTML = `
+  <section class="relative overflow-hidden">
+    <div class="absolute inset-0 grad opacity-[.06]"></div>
+    <div class="mx-auto max-w-6xl px-4 py-16 sm:py-24">
+      <span class="chip mb-5"><span class="h-2 w-2 rounded-full bg-accent"></span> Publicar es 100% gratis</span>
+      <h1 class="max-w-2xl text-4xl font-extrabold leading-[1.05] tracking-tight text-navy sm:text-5xl">
+        Contanos qué necesitás.<br><span class="grad-text">Encontrá al profesional indicado cerca de vos.</span>
+      </h1>
+      <p class="mt-5 max-w-md text-lg text-muted">Plomeros, electricistas, pintores y más. Publicá tu solicitud gratis y recibí propuestas de profesionales de tu zona.</p>
+      <div class="mt-7 flex flex-wrap gap-3">
+        <a href="#/publicar" class="btn btn-primary grad px-5 py-3">Publicar mi solicitud gratis</a>
+        <a href="#/registro?rol=profesional" class="btn btn-ghost px-5 py-3">Soy profesional</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="bg-white py-16">
+    <div class="mx-auto max-w-6xl px-4">
+      <h2 class="text-center text-2xl font-bold text-navy">¿Cómo funciona ManosYa?</h2>
+      <p class="mt-2 text-center text-muted">Para los clientes, usar ManosYa es completamente gratis.</p>
+      <div class="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+        ${steps.map((s,i)=>`<div class="card p-6">
+          <div class="mb-3 grid h-11 w-11 place-items-center rounded-xl grad text-lg">${s[0]}</div>
+          <h3 class="text-lg font-bold text-navy">${i+1}. ${s[1]}</h3>
+          <p class="mt-1 text-sm text-muted">${s[2]}</p></div>`).join('')}
+      </div>
+      <div class="mx-auto mt-10 max-w-3xl rounded-2xl bg-surface p-6 text-center text-sm leading-relaxed text-muted">
+        Los profesionales utilizan un <b class="text-navy">sistema de créditos</b> para acceder a las solicitudes,
+        lo que ayuda a mantener una comunidad activa y de calidad, evitando el spam y asegurando que quienes te
+        contacten tengan un interés real en realizar el trabajo. Vos solo tenés que publicar tu solicitud y elegir
+        al profesional ideal para resolver tu necesidad.
+      </div>
+    </div>
+  </section>`;
+}
+
+// ── AUTH ─────────────────────────────────────────────────────────────────
+function renderAuth(mode) {
+  const isReg = mode === 'registro';
+  const rolParam = new URLSearchParams((location.hash.split('?')[1]||'')).get('rol');
+  $('app').innerHTML = `
+  <div class="mx-auto grid min-h-[70vh] max-w-md place-items-center px-4 py-10">
+    <div class="card w-full p-8">
+      <h1 class="text-2xl font-extrabold text-navy">${isReg ? 'Creá tu cuenta' : 'Ingresá a tu cuenta'}</h1>
+      ${isReg ? `<div id="roltabs" class="mt-5 grid grid-cols-2 gap-2 rounded-xl bg-surface p-1">
+        <button data-rol="cliente" class="roltab rounded-lg py-2 text-sm font-semibold">Busco profesional</button>
+        <button data-rol="profesional" class="roltab rounded-lg py-2 text-sm font-semibold">Soy profesional</button>
+      </div>` : ''}
+      <form id="authform" class="mt-6 space-y-4">
+        ${isReg ? `<div><label class="label">Nombre y apellido</label><input id="f_name" required class="input"></div>` : ''}
+        <div><label class="label">Email</label><input id="f_email" type="email" required class="input"></div>
+        <div><label class="label">Contraseña</label><input id="f_pass" type="password" minlength="6" required class="input"></div>
+        <p id="autherr" class="text-sm text-red-600" hidden></p>
+        <button class="btn btn-primary grad w-full py-3">${isReg ? 'Crear cuenta' : 'Ingresar'}</button>
+      </form>
+      <p class="mt-5 text-center text-sm text-muted">
+        ${isReg ? '¿Ya tenés cuenta? <a href="#/login" class="font-semibold text-brand">Ingresá</a>'
+                : '¿No tenés cuenta? <a href="#/registro" class="font-semibold text-brand">Registrate</a>'}
+      </p>
+    </div>
+  </div>`;
+
+  let rol = (rolParam === 'profesional') ? 'profesional' : 'cliente';
+  const paintTabs = () => document.querySelectorAll('.roltab').forEach(t => {
+    const on = t.dataset.rol === rol;
+    t.className = `roltab rounded-lg py-2 text-sm font-semibold ${on?'bg-white text-navy shadow':'text-muted'}`;
+  });
+  if (isReg) { paintTabs(); document.querySelectorAll('.roltab').forEach(t => t.onclick = () => { rol = t.dataset.rol; paintTabs(); }); }
+
+  $('authform').onsubmit = async (e) => {
+    e.preventDefault();
+    const err = $('autherr'); err.hidden = true;
+    const email = $('f_email').value.trim(), pass = $('f_pass').value;
+    try {
+      if (isReg) {
+        const name = $('f_name').value.trim();
+        const cred = await createUserWithEmailAndPassword(auth, email, pass);
+        const u = cred.user.uid;
+        await setDoc(doc(db,'users',u), { role: rol, fullName: name, email, createdAt: serverTimestamp() });
+        if (rol === 'profesional') {
+          await setDoc(doc(db,'professionals',u), { status:'pendiente', fullName:name, headline:'', city:'', categories:[], createdAt: serverTimestamp() });
+          const w = state.settings.welcome ?? DEFAULTS.welcome;
+          await setDoc(doc(db,'wallets',u), { balance:w, lifetimePurchased:0, lifetimeSpent:0 });
+          await addDoc(collection(db,'wallets',u,'ledger'), { type:'bonificacion', amount:w, balanceAfter:w, note:'Créditos de bienvenida', at: serverTimestamp() });
+        }
+      } else {
+        await signInWithEmailAndPassword(auth, email, pass);
+      }
+      // onAuthStateChanged redirige
+    } catch (ex) {
+      err.textContent = traducirError(ex.code) ; err.hidden = false;
+    }
+  };
+}
+function traducirError(code){
+  return ({
+    'auth/invalid-credential':'Email o contraseña incorrectos.',
+    'auth/email-already-in-use':'Ese email ya está registrado.',
+    'auth/weak-password':'La contraseña es muy corta.',
+    'auth/invalid-email':'Email inválido.',
+  })[code] || 'No se pudo completar. Probá de nuevo.';
+}
+
+// ── PUBLICAR (cliente) ───────────────────────────────────────────────────
+function renderPublicar() {
+  $('app').innerHTML = `
+  <div class="mx-auto max-w-2xl px-4 py-10">
+    <h1 class="text-2xl font-extrabold text-navy">Contanos qué necesitás</h1>
+    <p class="mt-1 text-muted">Publicar es <b class="text-accent">gratis</b>. Recibí propuestas de profesionales de tu zona.</p>
+    <form id="jobform" class="card mt-6 space-y-5 p-6">
+      <div><label class="label">¿Qué necesitás resolver?</label><input id="j_title" required class="input" placeholder="Ej: Reparar pérdida de agua en cocina"></div>
+      <div><label class="label">Detalle</label><textarea id="j_desc" required rows="4" class="input" placeholder="Contá lo más posible: qué pasa, hace cuánto, etc."></textarea></div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div><label class="label">Oficio</label><select id="j_cat" class="input">${CATEGORIES.map(c=>`<option value="${c[0]}">${c[1]}</option>`).join('')}</select></div>
+        <div><label class="label">Urgencia</label><select id="j_size" class="input">
+          <option value="pequeno">Normal</option><option value="mediano">Importante</option><option value="urgente">Urgente / alto valor</option></select></div>
+      </div>
+      <div><label class="label">Zona / barrio</label><input id="j_city" class="input" placeholder="Ej: Floresta, CABA"></div>
+      <div class="rounded-xl bg-surface p-4">
+        <p class="text-sm font-medium text-navy">Datos de contacto</p>
+        <p class="mb-3 text-xs text-muted">Solo los ve un profesional cuando decide tomar tu solicitud. No se publican.</p>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <input id="j_phone" class="input" placeholder="Teléfono">
+          <input id="j_wa" class="input" placeholder="WhatsApp">
+          <input id="j_email" type="email" class="input" placeholder="Email (opcional)">
+          <input id="j_addr" class="input" placeholder="Dirección (opcional)">
+        </div>
+      </div>
+      <p id="joberr" class="text-sm text-red-600" hidden></p>
+      <button class="btn btn-primary grad w-full py-3">Publicar solicitud gratis</button>
+    </form>
+  </div>`;
+
+  $('jobform').onsubmit = async (e) => {
+    e.preventDefault();
+    const size = $('j_size').value;
+    const cost = (state.settings.costs||DEFAULTS.costs)[size] ?? 1;
+    try {
+      const jobRef = await addDoc(collection(db,'jobs'), {
+        clientId: state.user.uid, title: $('j_title').value.trim(), description: $('j_desc').value.trim(),
+        categorySlug: $('j_cat').value, size, creditCost: cost, city: $('j_city').value.trim(),
+        status: 'abierta', unlocksCount: 0, maxUnlocks: state.settings.maxUnlocks ?? DEFAULTS.maxUnlocks,
+        createdAt: serverTimestamp(),
+      });
+      await setDoc(doc(db,'jobs',jobRef.id,'contact','data'), {
+        phone: $('j_phone').value.trim(), whatsapp: $('j_wa').value.trim(),
+        email: $('j_email').value.trim() || state.user.email, address: $('j_addr').value.trim(),
+      });
+      go('#/cliente');
+    } catch (ex) { const el=$('joberr'); el.textContent='No se pudo publicar: '+ex.message; el.hidden=false; }
+  };
+}
+
+// ── PANEL CLIENTE ────────────────────────────────────────────────────────
+async function renderClientePanel() {
+  $('app').innerHTML = `<div class="mx-auto max-w-3xl px-4 py-8"><h1 class="text-2xl font-extrabold text-navy">Mis solicitudes</h1><p id="cl-load" class="mt-4 text-muted">Cargando…</p><div id="cl-list" class="mt-6 space-y-3"></div></div>`;
+  const snap = await getDocs(query(collection(db,'jobs'), where('clientId','==',state.user.uid)));
+  const jobs = snap.docs.map(d => ({ id:d.id, ...d.data() })).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+  $('cl-load').remove();
+  if (!jobs.length) { $('cl-list').innerHTML = `<div class="card p-8 text-center"><p class="font-bold text-navy">Todavía no publicaste solicitudes.</p><a href="#/publicar" class="btn btn-primary grad mt-3">Publicar una</a></div>`; return; }
+  $('cl-list').innerHTML = jobs.map(j => `<div class="card p-5">
+    <div class="flex items-start justify-between gap-2">
+      <div><h3 class="font-bold text-navy">${esc(j.title)}</h3><p class="text-xs text-muted">${catName(j.categorySlug)} · ${esc(j.city||'CABA')}</p></div>
+      <span class="chip">${j.unlocksCount||0}/${j.maxUnlocks||DEFAULTS.maxUnlocks} interesados</span>
+    </div>
+    <p class="mt-2 text-sm text-muted">${esc(j.description)}</p>
+  </div>`).join('');
+}
+
+// ── FEED PROFESIONAL ─────────────────────────────────────────────────────
+async function renderProFeed() {
+  $('app').innerHTML = `<div class="mx-auto max-w-5xl px-4 py-8">
+    <div class="flex items-center justify-between"><h1 class="text-2xl font-extrabold text-navy">Solicitudes disponibles</h1>
+      <a href="#/wallet" class="chip">Saldo: <b id="bal" class="text-brand">…</b> créditos</a></div>
+    <p id="fd-load" class="mt-4 text-muted">Cargando…</p>
+    <div id="fd-list" class="mt-6 grid gap-4 md:grid-cols-2"></div></div>`;
+
+  const [wSnap, jSnap] = await Promise.all([
+    getDoc(doc(db,'wallets',state.user.uid)),
+    getDocs(query(collection(db,'jobs'), where('status','==','abierta'))),
+  ]);
+  let balance = wSnap.exists() ? (wSnap.data().balance||0) : 0;
+  $('bal').textContent = balance;
+
+  const jobs = jSnap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+  // ¿cuáles ya desbloqueé? consultamos cada unlock (lectura barata por doc)
+  const mine = new Set();
+  await Promise.all(jobs.map(async j => {
+    const u = await getDoc(doc(db,'jobs',j.id,'unlocks',state.user.uid));
+    if (u.exists()) mine.add(j.id);
+  }));
+  $('fd-load').remove();
+
+  if (!jobs.length) { $('fd-list').innerHTML = `<p class="text-muted">No hay solicitudes abiertas por ahora.</p>`; return; }
+  $('fd-list').innerHTML = jobs.map(j => {
+    const full = (j.unlocksCount||0) >= (j.maxUnlocks||DEFAULTS.maxUnlocks);
+    return `<article class="card flex flex-col gap-3 p-5" data-job="${j.id}" data-cost="${j.creditCost}">
+      <div class="flex items-start justify-between gap-2">
+        <div><h3 class="font-bold text-navy">${esc(j.title)}</h3><p class="text-xs text-muted">${catName(j.categorySlug)}</p></div>
+        <span class="chip">${SIZE_LABEL[j.size]||''}</span>
+      </div>
+      <p class="text-sm text-muted">${esc(j.description)}</p>
+      <p class="text-xs text-muted">📍 ${esc(j.city||'CABA')}</p>
+      <div class="unlock-slot">${ mine.has(j.id)
+        ? `<div class="text-sm text-accent font-semibold contact-pending" data-job="${j.id}">Desbloqueado · ver contacto ▾</div>`
+        : full ? `<div class="text-sm text-muted">Esta solicitud ya alcanzó el máximo de profesionales.</div>`
+        : `<button class="btn btn-primary grad w-full unlock-btn">🔒 Ver contacto · ${j.creditCost} ${j.creditCost===1?'crédito':'créditos'}</button>` }</div>
+    </article>`;
+  }).join('');
+
+  // ver contacto de las ya desbloqueadas
+  document.querySelectorAll('.contact-pending').forEach(el => el.onclick = () => showContact(el.dataset.job, el.closest('.unlock-slot')));
+  // desbloquear
+  document.querySelectorAll('.unlock-btn').forEach(btn => btn.onclick = (e) => {
+    const art = e.target.closest('article'); const jobId = art.dataset.job; const cost = +art.dataset.cost;
+    const slot = art.querySelector('.unlock-slot');
+    slot.innerHTML = `<div class="rounded-xl border border-line p-3 text-sm">
+      <p class="text-navy">Se descontarán <b>${cost} ${cost===1?'crédito':'créditos'}</b>. Tu saldo: ${balance}.</p>
+      ${balance<cost?'<p class="mt-1 text-red-600">No te alcanzan los créditos. <a href="#/wallet" class="underline">Comprar</a></p>':''}
+      <div class="mt-3 flex gap-2"><button class="btn btn-primary grad flex-1 confirm-unlock" ${balance<cost?'disabled':''}>Confirmar</button>
+      <button class="btn btn-ghost cancel-unlock">Cancelar</button></div></div>`;
+    slot.querySelector('.cancel-unlock').onclick = renderProFeed;
+    slot.querySelector('.confirm-unlock').onclick = async (ev) => {
+      ev.target.disabled = true; ev.target.textContent = 'Procesando…';
+      const res = await doUnlock(jobId, cost);
+      if (!res.ok) { slot.innerHTML = `<p class="text-sm text-red-600">${res.error}</p>`; return; }
+      balance = res.balance ?? balance; $('bal').textContent = balance;
+      await showContact(jobId, slot);
+    };
+  });
+}
+
+async function doUnlock(jobId, cost) {
+  const u = state.user.uid;
+  try {
+    const out = await runTransaction(db, async (tx) => {
+      const jobRef = doc(db,'jobs',jobId), wRef = doc(db,'wallets',u), unRef = doc(db,'jobs',jobId,'unlocks',u);
+      const jS = await tx.get(jobRef), wS = await tx.get(wRef), unS = await tx.get(unRef);
+      if (!jS.exists()) throw new Error('La solicitud no existe.');
+      if (unS.exists()) return { already:true, balance: wS.exists()?wS.data().balance:0 };
+      const job = jS.data();
+      if (job.status !== 'abierta') throw new Error('La solicitud no está abierta.');
+      if ((job.unlocksCount||0) >= (job.maxUnlocks||DEFAULTS.maxUnlocks)) throw new Error('Ya alcanzó el máximo de profesionales.');
+      const bal = wS.exists() ? (wS.data().balance||0) : 0;
+      if (bal < job.creditCost) throw new Error('INSUFICIENTE');
+      const newBal = bal - job.creditCost;
+      tx.update(wRef, { balance: newBal, lifetimeSpent: (wS.data().lifetimeSpent||0)+job.creditCost });
+      tx.set(unRef, { creditsSpent: job.creditCost, at: serverTimestamp() });
+      tx.update(jobRef, { unlocksCount: increment(1) });
+      return { already:false, balance:newBal, cost:job.creditCost };
+    });
+    // ledger fuera de la transacción (la transacción ya garantizó el descuento)
+    if (!out.already) {
+      await addDoc(collection(db,'wallets',u,'ledger'), {
+        type:'consumo', amount:-out.cost, balanceAfter:out.balance, jobId, note:'Desbloqueo de solicitud', at: serverTimestamp() });
+    }
+    return { ok:true, balance: out.balance };
+  } catch (ex) {
+    return { ok:false, error: ex.message==='INSUFICIENTE' ? 'Créditos insuficientes.' : ('No se pudo desbloquear: '+ex.message) };
+  }
+}
+
+async function showContact(jobId, slot) {
+  slot.innerHTML = `<div class="rounded-xl bg-accent/10 p-4 text-sm"><p class="font-semibold text-accent">Contacto desbloqueado</p><p class="mt-1 text-muted">Cargando…</p></div>`;
+  try {
+    const c = (await getDoc(doc(db,'jobs',jobId,'contact','data'))).data() || {};
+    const rows = [];
+    if (c.phone) rows.push(`📞 ${esc(c.phone)}`);
+    if (c.whatsapp) rows.push(`💬 <a class="text-brand underline" target="_blank" href="https://wa.me/${esc(c.whatsapp.replace(/\D/g,''))}">${esc(c.whatsapp)}</a>`);
+    if (c.email) rows.push(`✉️ ${esc(c.email)}`);
+    if (c.address) rows.push(`📍 ${esc(c.address)}`);
+    slot.innerHTML = `<div class="rounded-xl bg-accent/10 p-4 text-sm"><p class="mb-2 font-semibold text-accent">Contacto desbloqueado</p>
+      <ul class="space-y-1 text-navy">${rows.map(r=>`<li>${r}</li>`).join('')||'<li class="text-muted">Sin datos cargados.</li>'}</ul></div>`;
+  } catch (ex) { slot.innerHTML = `<p class="text-sm text-red-600">No se pudo leer el contacto.</p>`; }
+}
+
+// ── BILLETERA PROFESIONAL ────────────────────────────────────────────────
+async function renderProWallet() {
+  const pago = new URLSearchParams((location.hash.split('?')[1]||'')).get('pago');
+  const aviso = pago==='ok' ? `<div class="card mb-4 p-4 text-sm" style="background:#E9F7F0;color:#0F2C5C">✅ Pago recibido. Si todavía no ves el saldo actualizado, esperá unos segundos y recargá.</div>`
+    : pago==='pendiente' ? `<div class="card mb-4 p-4 text-sm" style="background:#FAEEDA;color:#0F2C5C">⏳ Tu pago quedó pendiente. Se acreditará cuando Mercado Pago lo apruebe.</div>`
+    : pago==='error' ? `<div class="card mb-4 p-4 text-sm" style="background:#FCEBEB;color:#0F2C5C">❌ El pago no se completó. Podés intentarlo de nuevo.</div>` : '';
+  $('app').innerHTML = `<div class="mx-auto max-w-4xl px-4 py-8"><h1 class="text-2xl font-extrabold text-navy">Mis créditos</h1>${aviso}
+    <div id="wl-top" class="card grad mt-6 flex items-center gap-4 p-6 text-white"><span class="text-3xl">👛</span>
+      <div><p class="text-sm opacity-90">Saldo disponible</p><p id="wl-bal" class="text-3xl font-extrabold">…</p></div></div>
+    <h2 class="mt-8 mb-3 text-lg font-bold text-navy">Comprar créditos</h2>
+    <div id="wl-pks" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"></div>
+    <p class="mt-2 text-xs text-muted">Pago seguro con Mercado Pago. Los créditos se acreditan automáticamente al aprobarse el pago.</p>
+    <h2 class="mt-8 mb-3 text-lg font-bold text-navy">Historial de movimientos</h2>
+    <div id="wl-hist" class="card divide-y divide-line"></div></div>`;
+
+  const wSnap = await getDoc(doc(db,'wallets',state.user.uid));
+  const w = wSnap.exists()? wSnap.data() : { balance:0, lifetimePurchased:0, lifetimeSpent:0 };
+  $('wl-bal').textContent = `${w.balance||0} créditos`;
+  $('wl-pks').innerHTML = (state.settings.packages||DEFAULTS.packages).map(p => `
+    <div class="card flex flex-col items-center gap-2 p-5 text-center">
+      <p class="text-2xl font-extrabold text-navy">${p.credits}</p><p class="text-xs text-muted">créditos</p>
+      <p class="text-lg font-bold text-brand">${ARS(p.price)}</p>
+      <button class="btn btn-primary grad w-full buy-pk" data-c="${p.credits}" data-p="${p.price}">Comprar</button>
+    </div>`).join('');
+  document.querySelectorAll('.buy-pk').forEach(b => b.onclick = async () => {
+    b.disabled = true; b.textContent = 'Redirigiendo…';
+    try {
+      const r = await fetch('/.netlify/functions/crear-preferencia', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ credits:+b.dataset.c, proUid: state.user.uid, email: state.user.email }),
+      });
+      const j = await r.json();
+      if (j.init_point) { location.href = j.init_point; }      // a Mercado Pago
+      else { alert(j.error || 'No se pudo iniciar el pago.'); b.disabled=false; b.textContent='Comprar'; }
+    } catch (e) { alert('No se pudo conectar con el pago. Probá de nuevo.'); b.disabled=false; b.textContent='Comprar'; }
+  });
+
+  const hSnap = await getDocs(query(collection(db,'wallets',state.user.uid,'ledger')));
+  const hist = hSnap.docs.map(d=>d.data()).sort((a,b)=>(b.at?.seconds||0)-(a.at?.seconds||0));
+  $('wl-hist').innerHTML = hist.length ? hist.map(t => `<div class="flex items-center justify-between p-4 text-sm">
+      <div><p class="font-medium text-navy">${TXN_LABEL[t.type]||t.type}</p>
+      <p class="text-xs text-muted">${t.at?.toDate ? t.at.toDate().toLocaleString('es-AR') : ''}</p></div>
+      <span class="font-bold ${t.amount>=0?'text-accent':'text-navy'}">${t.amount>=0?'+':''}${t.amount}</span></div>`).join('')
+    : `<p class="p-5 text-sm text-muted">Todavía no hay movimientos.</p>`;
+}
+
+// ── ADMIN ────────────────────────────────────────────────────────────────
+async function renderAdmin() {
+  $('app').innerHTML = `<div class="mx-auto max-w-5xl px-4 py-8"><h1 class="text-2xl font-extrabold text-navy">Administración</h1>
+    <h2 class="mt-6 mb-3 text-lg font-bold text-navy">Profesionales</h2>
+    <div id="ad-pros" class="card divide-y divide-line"><p class="p-4 text-muted">Cargando…</p></div>
+    <h2 class="mt-8 mb-3 text-lg font-bold text-navy">Configuración de créditos</h2>
+    <div id="ad-cfg" class="card p-5"></div></div>`;
+
+  // Profesionales + sus wallets
+  const pSnap = await getDocs(collection(db,'professionals'));
+  const pros = pSnap.docs.map(d=>({id:d.id,...d.data()}));
+  const wallets = {};
+  await Promise.all(pros.map(async p => { const w = await getDoc(doc(db,'wallets',p.id)); wallets[p.id] = w.exists()?w.data().balance||0:0; }));
+  $('ad-pros').innerHTML = pros.length ? pros.map(p => `<div class="flex flex-wrap items-center justify-between gap-3 p-4" data-pro="${p.id}">
+      <div><p class="font-medium text-navy">${esc(p.fullName||'(sin nombre)')}</p>
+        <p class="text-xs text-muted">Estado: ${p.status} · Saldo: <b>${wallets[p.id]}</b> créditos</p></div>
+      <div class="flex items-center gap-2">
+        ${p.status!=='aprobado' ? `<button class="btn btn-soft approve">Aprobar</button>` : `<span class="chip text-accent">Verificado ✓</span>`}
+        <input type="number" placeholder="±créd" class="input w-24 adj-amt">
+        <button class="btn btn-ghost adj-btn">Cargar/quitar</button>
+      </div></div>`).join('') : `<p class="p-4 text-muted">No hay profesionales todavía.</p>`;
+
+  document.querySelectorAll('#ad-pros [data-pro]').forEach(row => {
+    const id = row.dataset.pro;
+    row.querySelector('.approve')?.addEventListener('click', async () => {
+      await updateDoc(doc(db,'professionals',id), { status:'aprobado' }); renderAdmin();
+    });
+    row.querySelector('.adj-btn').addEventListener('click', async () => {
+      const amt = parseInt(row.querySelector('.adj-amt').value, 10);
+      if (!amt) return;
+      await adminAdjust(id, amt);
+      renderAdmin();
+    });
+  });
+
+  // Configuración (costos + bienvenida + máx desbloqueos)
+  const s = state.settings;
+  $('ad-cfg').innerHTML = `<form id="cfgform" class="grid gap-4 sm:grid-cols-3">
+    <div><label class="label">Costo Normal</label><input id="c_p" type="number" class="input" value="${s.costs.pequeno}"></div>
+    <div><label class="label">Costo Importante</label><input id="c_m" type="number" class="input" value="${s.costs.mediano}"></div>
+    <div><label class="label">Costo Urgente</label><input id="c_u" type="number" class="input" value="${s.costs.urgente}"></div>
+    <div><label class="label">Créditos de bienvenida</label><input id="c_w" type="number" class="input" value="${s.welcome}"></div>
+    <div><label class="label">Máx. desbloqueos por solicitud</label><input id="c_mx" type="number" class="input" value="${s.maxUnlocks}"></div>
+    <div class="sm:col-span-3"><button class="btn btn-primary grad">Guardar configuración</button>
+      <span class="ml-2 text-xs text-muted">Nota: si cambiás los créditos de bienvenida, actualizá también el número en firestore.rules.</span></div>
+  </form>`;
+  $('cfgform').onsubmit = async (e) => {
+    e.preventDefault();
+    const cfg = { costs:{ pequeno:+$('c_p').value, mediano:+$('c_m').value, urgente:+$('c_u').value },
+      welcome:+$('c_w').value, maxUnlocks:+$('c_mx').value, packages: s.packages || DEFAULTS.packages };
+    await setDoc(doc(db,'settings','credits'), cfg, { merge:true });
+    state.settings = { ...state.settings, ...cfg };
+    alert('Configuración guardada.');
+  };
+}
+
+async function adminAdjust(proId, amount) {
+  const wRef = doc(db,'wallets',proId);
+  await runTransaction(db, async (tx) => {
+    const wS = await tx.get(wRef);
+    const cur = wS.exists() ? (wS.data().balance ?? 0) : 0;
+    const newBal = Math.max(0, cur + amount);
+    if (wS.exists()) tx.update(wRef, { balance:newBal, lifetimePurchased:(wS.data().lifetimePurchased||0)+(amount>0?amount:0) });
+    else tx.set(wRef, { balance:newBal, lifetimePurchased:Math.max(0,amount), lifetimeSpent:0 });
+    const lRef = doc(collection(db,'wallets',proId,'ledger'));
+    tx.set(lRef, { type: amount>0?'compra':'reembolso', amount, balanceAfter:newBal, note:'Carga manual (admin)', at: serverTimestamp() });
+  });
+}
+
+// ── Auth state ───────────────────────────────────────────────────────────
+onAuthStateChanged(auth, async (user) => {
+  state.user = user;
+  if (user) {
+    const p = await getDoc(doc(db,'users',user.uid));
+    state.profile = p.exists() ? p.data() : { role:'cliente' };
+    await loadSettings();
+    if (['#/login','#/registro','#/',''].includes(location.hash) || !location.hash) {
+      location.hash = state.profile.role === 'profesional' ? '#/feed'
+        : state.profile.role === 'admin' ? '#/admin' : '#/';
+    }
+  } else { state.profile = null; }
+  navActions();
+  router();
+});
+</script>
+</body>
+</html>

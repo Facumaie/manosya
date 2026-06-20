@@ -1,0 +1,102 @@
+rules_version = '2';
+
+// ============================================================================
+//  ManosYa · Reglas de seguridad de Firestore (equivalente al RLS)
+// ----------------------------------------------------------------------------
+//  Idea clave: el contacto del cliente vive en jobs/{id}/contact/data y solo
+//  se puede LEER si sos el cliente dueño, admin, o un profesional que YA tiene
+//  un doc en jobs/{id}/unlocks/{tuUid}. Así el feed muestra la vista previa
+//  pero el teléfono aparece solo tras desbloquear.
+//
+//  Sobre la plata: el dueño de una wallet solo puede BAJAR su saldo (gastar);
+//  nunca subirlo. Subir saldo (compras/ajustes) es exclusivo del admin.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function role() { return get(/databases/$(db)/documents/users/$(uid())).data.role; }
+    function isAdmin() { return signedIn() && role() == 'admin'; }
+
+    // ── USERS ────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read:   if signedIn() && (uid() == userId || isAdmin());
+      allow create: if signedIn() && uid() == userId
+                       && request.resource.data.role in ['cliente', 'profesional']; // nadie se hace admin solo
+      allow update: if isAdmin()
+                       || (uid() == userId && request.resource.data.role == resource.data.role);
+    }
+
+    // ── PROFESSIONALS (perfil del prestador) ─────────────────
+    match /professionals/{proId} {
+      allow read:   if true;  // públicos
+      allow create: if signedIn() && uid() == proId
+                       && request.resource.data.status == 'pendiente';
+      allow update: if isAdmin()
+                       || (uid() == proId && request.resource.data.status == resource.data.status);
+    }
+
+    // ── SETTINGS (costos, bienvenida, paquetes) ──────────────
+    match /settings/{doc} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // ── JOBS (vista previa pública para usuarios logueados) ──
+    match /jobs/{jobId} {
+      allow read:   if signedIn();
+      allow create: if signedIn() && request.resource.data.clientId == uid();
+      allow delete: if isAdmin() || uid() == resource.data.clientId;
+      // El cliente edita lo suyo; un pro solo puede +1 en unlocksCount al desbloquear
+      allow update: if isAdmin()
+                       || uid() == resource.data.clientId
+                       || (signedIn()
+                           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['unlocksCount'])
+                           && request.resource.data.unlocksCount == resource.data.unlocksCount + 1);
+
+      // CONTACTO: cliente dueño, admin, o pro que desbloqueó
+      match /contact/{doc} {
+        allow read:  if isAdmin()
+                        || get(/databases/$(db)/documents/jobs/$(jobId)).data.clientId == uid()
+                        || exists(/databases/$(db)/documents/jobs/$(jobId)/unlocks/$(uid()));
+        allow write: if get(/databases/$(db)/documents/jobs/$(jobId)).data.clientId == uid();
+      }
+
+      // UNLOCKS: el pro crea el suyo (la transacción del cliente le descuenta el saldo)
+      match /unlocks/{proUid} {
+        allow read:   if uid() == proUid || isAdmin()
+                         || get(/databases/$(db)/documents/jobs/$(jobId)).data.clientId == uid();
+        allow create: if signedIn() && uid() == proUid;
+      }
+    }
+
+    // ── WALLETS (billetera de créditos) ──────────────────────
+    match /wallets/{proId} {
+      allow read:   if uid() == proId || isAdmin();
+      // Alta con créditos de bienvenida acotados (hardcode = 2; si lo cambiás en
+      // settings, actualizá también este número)
+      allow create: if uid() == proId
+                       && request.resource.data.balance <= 2
+                       && request.resource.data.lifetimeSpent == 0;
+      // El dueño SOLO puede gastar (bajar saldo); subir saldo es del admin
+      allow update: if isAdmin()
+                       || (uid() == proId
+                           && request.resource.data.balance >= 0
+                           && request.resource.data.balance < resource.data.balance);
+
+      match /ledger/{txn} {
+        allow read:   if uid() == proId || isAdmin();
+        allow create: if uid() == proId || isAdmin();
+      }
+    }
+
+    // ── PAYMENTS (órdenes de Mercado Pago) ───────────────────
+    // Las escribe la Netlify Function con el service account (saltea reglas).
+    // El cliente solo puede LEER las suyas.
+    match /payments/{id} {
+      allow read: if signedIn() && (resource.data.proUid == uid() || isAdmin());
+    }
+  }
+}
