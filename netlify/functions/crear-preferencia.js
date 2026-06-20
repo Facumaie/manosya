@@ -39,7 +39,8 @@ exports.handler = async (event) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    const site = process.env.SITE_URL || '';
+    const proto = event.headers['x-forwarded-proto'] || 'https';
+    const site = (process.env.SITE_URL || `${proto}://${event.headers.host}`).replace(/\/$/, '');
     const pref = await fetch(`${MP}/checkout/preferences`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}` },
@@ -57,7 +58,7 @@ exports.handler = async (event) => {
       }),
     }).then((r) => r.json());
 
-    if (!pref.init_point) return json(502, { error: 'No se pudo crear el pago' });
+    if (!pref.init_point) return json(502, { error: 'Mercado Pago no devolvió el pago', detail: pref });
     await payRef.update({ mpPreferenceId: pref.id });
     return json(200, { init_point: pref.init_point });
   } catch (e) {
