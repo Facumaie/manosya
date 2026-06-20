@@ -4,27 +4,31 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ManosYa · Encontrá al profesional que necesitás</title>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="assets/favicon-64.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#1E7E8C">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = { theme: { extend: { colors: {
-    navy: '#0F2C5C', brand: '#2477C2', accent: '#2FA86A', surface: '#F5F7FA', line: '#E3E8EF', muted: '#5B6B82'
+    navy: '#0C2C4A', brand: '#1E7E8C', accent: '#EE7A4E', surface: '#F5F7FA', line: '#E3E8EF', muted: '#5B6B82'
   }, fontFamily: { sans: ['Inter','system-ui','sans-serif'] } } } };
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   body{font-family:Inter,system-ui,sans-serif;background:#F5F7FA;color:#1A2231}
-  .grad{background:linear-gradient(135deg,#2477C2 0%,#2FA86A 100%)}
-  .grad-text{background:linear-gradient(135deg,#2477C2,#2FA86A);-webkit-background-clip:text;background-clip:text;color:transparent}
-  .card{background:#fff;border:1px solid #E3E8EF99;border-radius:1rem;box-shadow:0 1px 2px rgba(15,44,92,.04),0 8px 24px rgba(15,44,92,.06)}
+  .grad-text{background:linear-gradient(135deg,#1E7E8C,#EE7A4E);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .card{background:#fff;border:1px solid #E3E8EF99;border-radius:1rem;box-shadow:0 1px 2px rgba(12,44,74,.04),0 8px 24px rgba(12,44,74,.06)}
+  .grad{background:linear-gradient(135deg,#1E7E8C 0%,#176B79 100%)}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;border-radius:.75rem;padding:.62rem 1rem;font-weight:600;font-size:.875rem;cursor:pointer;transition:.15s;border:0}
   .btn-primary{color:#fff}.btn-primary.grad:hover{filter:brightness(1.05)}
-  .btn-ghost{background:#fff;color:#0F2C5C;border:1px solid #E3E8EF}.btn-ghost:hover{border-color:#3B92D9}
-  .btn-soft{background:#EAF3FB;color:#1E73BE}
+  .btn-ghost{background:#fff;color:#0C2C4A;border:1px solid #E3E8EF}.btn-ghost:hover{border-color:#3FA0AE}
+  .btn-soft{background:#E8F3F5;color:#176B79}
   .input{width:100%;border:1px solid #E3E8EF;border-radius:.75rem;padding:.6rem .9rem;font-size:.875rem;outline:0;background:#fff}
-  .input:focus{border-color:#3B92D9;box-shadow:0 0 0 3px #EAF3FB}
-  .chip{display:inline-flex;align-items:center;gap:.35rem;border:1px solid #E3E8EF;background:#fff;border-radius:999px;padding:.3rem .7rem;font-size:.72rem;font-weight:500;color:#0F2C5C}
-  .label{display:block;font-size:.8rem;font-weight:500;color:#0F2C5C;margin-bottom:.3rem}
+  .input:focus{border-color:#3FA0AE;box-shadow:0 0 0 3px #E8F3F5}
+  .chip{display:inline-flex;align-items:center;gap:.35rem;border:1px solid #E3E8EF;background:#fff;border-radius:999px;padding:.3rem .7rem;font-size:.72rem;font-weight:500;color:#0C2C4A}
+  .label{display:block;font-size:.8rem;font-weight:500;color:#0C2C4A;margin-bottom:.3rem}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -32,14 +36,9 @@
 
 <header class="sticky top-0 z-40 border-b border-line bg-white/85 backdrop-blur">
   <nav class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-    <a href="#/" class="flex items-center gap-2">
-      <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
-        <path d="M8 26c0-2 2-3 4-2l10 5c2 1 4 1 6 0l8-4c2-1 4 0 4 2 0 6-7 11-16 11S8 32 8 26Z" fill="url(#g)"/>
-        <path d="M14 22 24 12l10 10" stroke="url(#g)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
-        <rect x="21" y="18" width="6" height="6" rx="1" fill="#0F2C5C"/>
-        <defs><linearGradient id="g" x1="8" y1="12" x2="40" y2="37"><stop stop-color="#2477C2"/><stop offset="1" stop-color="#2FA86A"/></linearGradient></defs>
-      </svg>
-      <span class="text-xl font-extrabold tracking-tight"><span class="text-navy">MANOS</span><span class="text-accent">YA</span></span>
+    <a href="#/" class="flex items-center gap-2.5">
+      <img src="assets/manosya-icon.png" alt="" class="h-9 w-auto">
+      <img src="assets/manosya-wordmark.png" alt="ManosYa" class="h-5 w-auto">
     </a>
     <div id="nav-actions" class="flex items-center gap-2"></div>
   </nav>
@@ -48,9 +47,10 @@
 <main id="app" class="flex-1"></main>
 
 <footer class="border-t border-line bg-white">
-  <div class="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-7 text-sm text-muted sm:flex-row sm:justify-between">
+  <div class="mx-auto flex max-w-6xl flex-col items-center gap-3 px-4 py-7 text-sm text-muted sm:flex-row sm:justify-between">
     <span>© <span id="year"></span> ManosYa · Hecho en Argentina 🇦🇷</span>
-    <span>Para clientes, usar ManosYa es 100% gratis.</span>
+    <span class="flex items-center gap-2">Un producto de
+      <img src="assets/fmlabs-logo.png" alt="FMLabs" class="h-5 w-auto"></span>
   </div>
 </footer>
 
@@ -116,8 +116,8 @@ function navActions() {
   }
   const r = state.profile?.role;
   const links = [];
-  if (r === 'cliente') links.push(`<a href="#/publicar" class="btn btn-soft">Publicar</a>`,`<a href="#/cliente" class="btn btn-ghost">Mis solicitudes</a>`);
-  if (r === 'profesional') links.push(`<a href="#/feed" class="btn btn-soft">Solicitudes</a>`,`<a href="#/wallet" class="btn btn-ghost">Mis créditos</a>`);
+  if (r === 'cliente') links.push(`<a href="#/publicar" class="btn btn-soft">Publicar</a>`,`<a href="#/profesionales" class="btn btn-ghost">Profesionales</a>`,`<a href="#/cliente" class="btn btn-ghost">Mis solicitudes</a>`);
+  if (r === 'profesional') links.push(`<a href="#/feed" class="btn btn-soft">Solicitudes</a>`,`<a href="#/perfil" class="btn btn-ghost">Mi perfil</a>`,`<a href="#/wallet" class="btn btn-ghost">Mis créditos</a>`);
   if (r === 'admin') links.push(`<a href="#/admin" class="btn btn-ghost">Admin</a>`);
   el.innerHTML = links.join('') + `<button id="logout" class="btn btn-ghost">Salir</button>`;
   $('logout').onclick = async () => { await signOut(auth); location.hash = '#/'; };
@@ -137,8 +137,10 @@ function router() {
   if (h === '/login') return renderAuth('login');
   if (h === '/registro') return renderAuth('registro');
   if (h === '/publicar') return guard(['cliente','admin'], renderPublicar);
+  if (h === '/profesionales') return guard(['cliente','admin'], renderPool);
   if (h === '/cliente')  return guard(['cliente','admin'], renderClientePanel);
   if (h === '/feed')     return guard(['profesional','admin'], renderProFeed);
+  if (h === '/perfil')   return guard(['profesional','admin'], renderProProfile);
   if (h === '/wallet')   return guard(['profesional','admin'], renderProWallet);
   if (h === '/admin')    return guard(['admin'], renderAdmin);
   return renderHome();
@@ -195,6 +197,7 @@ function renderAuth(mode) {
   $('app').innerHTML = `
   <div class="mx-auto grid min-h-[70vh] max-w-md place-items-center px-4 py-10">
     <div class="card w-full p-8">
+      <img src="assets/manosya-logo.png" alt="ManosYa" class="mx-auto mb-5 h-24 w-auto">
       <h1 class="text-2xl font-extrabold text-navy">${isReg ? 'Creá tu cuenta' : 'Ingresá a tu cuenta'}</h1>
       ${isReg ? `<div id="roltabs" class="mt-5 grid grid-cols-2 gap-2 rounded-xl bg-surface p-1">
         <button data-rol="cliente" class="roltab rounded-lg py-2 text-sm font-semibold">Busco profesional</button>
@@ -431,9 +434,9 @@ async function showContact(jobId, slot) {
 // ── BILLETERA PROFESIONAL ────────────────────────────────────────────────
 async function renderProWallet() {
   const pago = new URLSearchParams((location.hash.split('?')[1]||'')).get('pago');
-  const aviso = pago==='ok' ? `<div class="card mb-4 p-4 text-sm" style="background:#E9F7F0;color:#0F2C5C">✅ Pago recibido. Si todavía no ves el saldo actualizado, esperá unos segundos y recargá.</div>`
-    : pago==='pendiente' ? `<div class="card mb-4 p-4 text-sm" style="background:#FAEEDA;color:#0F2C5C">⏳ Tu pago quedó pendiente. Se acreditará cuando Mercado Pago lo apruebe.</div>`
-    : pago==='error' ? `<div class="card mb-4 p-4 text-sm" style="background:#FCEBEB;color:#0F2C5C">❌ El pago no se completó. Podés intentarlo de nuevo.</div>` : '';
+  const aviso = pago==='ok' ? `<div class="card mb-4 p-4 text-sm" style="background:#E9F7F0;color:#0C2C4A">✅ Pago recibido. Si todavía no ves el saldo actualizado, esperá unos segundos y recargá.</div>`
+    : pago==='pendiente' ? `<div class="card mb-4 p-4 text-sm" style="background:#FAEEDA;color:#0C2C4A">⏳ Tu pago quedó pendiente. Se acreditará cuando Mercado Pago lo apruebe.</div>`
+    : pago==='error' ? `<div class="card mb-4 p-4 text-sm" style="background:#FCEBEB;color:#0C2C4A">❌ El pago no se completó. Podés intentarlo de nuevo.</div>` : '';
   $('app').innerHTML = `<div class="mx-auto max-w-4xl px-4 py-8"><h1 class="text-2xl font-extrabold text-navy">Mis créditos</h1>${aviso}
     <div id="wl-top" class="card grad mt-6 flex items-center gap-4 p-6 text-white"><span class="text-3xl">👛</span>
       <div><p class="text-sm opacity-90">Saldo disponible</p><p id="wl-bal" class="text-3xl font-extrabold">…</p></div></div>
@@ -541,6 +544,76 @@ async function adminAdjust(proId, amount) {
     const lRef = doc(collection(db,'wallets',proId,'ledger'));
     tx.set(lRef, { type: amount>0?'compra':'reembolso', amount, balanceAfter:newBal, note:'Carga manual (admin)', at: serverTimestamp() });
   });
+}
+
+// ── PERFIL DEL PROFESIONAL (editable) ────────────────────────────────────
+async function renderProProfile() {
+  const ref = doc(db,'professionals',state.user.uid);
+  const snap = await getDoc(ref);
+  const p = snap.exists() ? snap.data() : { fullName: state.profile?.fullName||'', headline:'', city:'', whatsapp:'', bio:'', categories:[] };
+  const sel = new Set(p.categories||[]);
+  const verif = p.status === 'aprobado';
+  $('app').innerHTML = `<div class="mx-auto max-w-2xl px-4 py-8">
+    <h1 class="text-2xl font-extrabold text-navy">Mi perfil profesional</h1>
+    <p class="mt-1 text-muted">Completá tu perfil para aparecer en el listado que ven los clientes.
+      ${verif ? '<span class="text-accent font-semibold">Estás verificado ✓</span>' : 'Tu perfil aparece una vez que el equipo lo verifica.'}</p>
+    <form id="pf" class="card mt-6 space-y-5 p-6">
+      <div><label class="label">Título / oficio principal</label><input id="p_head" class="input" value="${esc(p.headline||'')}" placeholder="Ej: Plomero matriculado · 15 años"></div>
+      <div><label class="label">Zona / barrio donde trabajás</label><input id="p_city" class="input" value="${esc(p.city||'')}" placeholder="Ej: Floresta, CABA"></div>
+      <div><label class="label">WhatsApp</label><input id="p_wa" class="input" value="${esc(p.whatsapp||'')}" placeholder="Ej: 11 5555 5555"></div>
+      <div><label class="label">Sobre vos</label><textarea id="p_bio" rows="3" class="input" placeholder="Contá tu experiencia y qué trabajos hacés.">${esc(p.bio||'')}</textarea></div>
+      <div><span class="label">Oficios que realizás</span>
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          ${CATEGORIES.map(c=>`<label class="chip cursor-pointer"><input type="checkbox" class="catck" value="${c[0]}" ${sel.has(c[0])?'checked':''}> ${c[1]}</label>`).join('')}
+        </div></div>
+      <p id="pf-msg" class="text-sm text-accent" hidden></p>
+      <button class="btn btn-primary grad w-full py-3">Guardar perfil</button>
+    </form></div>`;
+  $('pf').onsubmit = async (e) => {
+    e.preventDefault();
+    const cats = [...document.querySelectorAll('.catck:checked')].map(c=>c.value);
+    try {
+      await setDoc(ref, { headline:$('p_head').value.trim(), city:$('p_city').value.trim(),
+        whatsapp:$('p_wa').value.trim(), bio:$('p_bio').value.trim(), categories:cats }, { merge:true });
+      const m=$('pf-msg'); m.textContent='✅ Perfil guardado.'; m.hidden=false;
+    } catch (ex) { const m=$('pf-msg'); m.style.color='#b91c1c'; m.textContent='No se pudo guardar: '+ex.message; m.hidden=false; }
+  };
+}
+
+// ── POOL DE PROFESIONALES (lo ve el cliente) ─────────────────────────────
+async function renderPool() {
+  $('app').innerHTML = `<div class="mx-auto max-w-5xl px-4 py-8">
+    <h1 class="text-2xl font-extrabold text-navy">Profesionales</h1>
+    <p class="mt-1 text-muted">Mirá quiénes están inscriptos y publicá tu solicitud para que te contacten.</p>
+    <div class="card mt-5 grid gap-3 p-4 sm:grid-cols-3">
+      <div><label class="label">Oficio</label><select id="pl_cat" class="input"><option value="">Todos</option>${CATEGORIES.map(c=>`<option value="${c[0]}">${c[1]}</option>`).join('')}</select></div>
+      <div><label class="label">Zona</label><input id="pl_city" class="input" placeholder="Ej: Floresta"></div>
+      <div class="flex items-end"><button id="pl_btn" class="btn btn-primary grad w-full">Filtrar</button></div>
+    </div>
+    <p id="pl-load" class="mt-5 text-muted">Cargando…</p>
+    <div id="pl-list" class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div></div>`;
+
+  const snap = await getDocs(query(collection(db,'professionals'), where('status','==','aprobado')));
+  const all = snap.docs.map(d=>({id:d.id,...d.data()}));
+  const draw = () => {
+    const fc = $('pl_cat').value, fcity = $('pl_city').value.trim().toLowerCase();
+    const list = all.filter(p =>
+      (!fc || (p.categories||[]).includes(fc)) &&
+      (!fcity || (p.city||'').toLowerCase().includes(fcity)));
+    $('pl-list').innerHTML = list.length ? list.map(p => `<div class="card p-5">
+        <div class="flex items-center gap-3">
+          <div class="grid h-12 w-12 place-items-center rounded-xl grad text-lg font-bold text-white">${esc((p.fullName||'?').charAt(0).toUpperCase())}</div>
+          <div><p class="font-bold text-navy">${esc(p.fullName||'Profesional')}</p>
+            <p class="text-xs font-semibold text-accent">✓ Verificado</p></div>
+        </div>
+        <p class="mt-2 text-sm text-muted">${esc(p.headline||'Profesional de oficios')}</p>
+        <div class="mt-2 flex flex-wrap gap-1.5">${(p.categories||[]).slice(0,4).map(c=>`<span class="chip">${catName(c)}</span>`).join('')}</div>
+        <p class="mt-2 text-xs text-muted">📍 ${esc(p.city||'—')}</p>
+        <a href="#/publicar" class="btn btn-soft mt-3 w-full">Publicar solicitud</a>
+      </div>`).join('') : `<div class="card p-8 text-center text-muted sm:col-span-2 lg:col-span-3">No hay profesionales que coincidan con el filtro todavía.</div>`;
+  };
+  $('pl-load').remove(); draw();
+  $('pl_btn').onclick = draw;
 }
 
 // ── Auth state ───────────────────────────────────────────────────────────
