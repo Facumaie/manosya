@@ -154,22 +154,81 @@ function renderHome() {
     ['⭐','Elegí con confianza','Compará calificaciones y elegí al que más te cierre.'],
     ['🤝','Coordiná el trabajo','Contactalo y arreglá los detalles directamente.'],
   ];
+  const oficios = { plomeria:'🚰', electricidad:'⚡', pintura:'🎨', albanileria:'🧱', limpieza:'🧽',
+    jardineria:'🌿', gas:'🔥', carpinteria:'🪚', cerrajeria:'🔑', aire:'❄️', mudanzas:'🚚', herreria:'⚒️' };
+  // Reseñas de ejemplo — reemplazar por reales apenas haya. Editá libremente este array.
+  const reviews = [
+    { name:'María Elena', zona:'Caballito', oficio:'Electricidad', stars:5, text:'Se me cortó la luz en media casa un domingo. Publiqué y en menos de una hora me escribieron tres electricistas. Vino uno matriculado y lo resolvió en el momento.' },
+    { name:'Damián R.', zona:'Villa Urquiza', oficio:'Plomería', stars:5, text:'Tenía una pérdida que venía pateando hace meses. Cargué la solicitud, elegí al que mejor me habló y quedó impecable. Re fácil de usar.' },
+    { name:'Carla S.', zona:'Flores', oficio:'Pintura', stars:5, text:'Pinté todo el departamento antes de mudarme. Pedí presupuestos y comparé tranquila, sin que me apuren. Quedó hermoso.' },
+    { name:'Roberto', zona:'Liniers', oficio:'Albañilería', stars:4, text:'Necesitaba arreglar una pared con humedad. Me contactaron varios y pude elegir por las calificaciones. Muy recomendable.' },
+    { name:'Lucía M.', zona:'Floresta', oficio:'Aire acond.', stars:5, text:'Instalación de un split en pleno enero. Apareció gente al toque y coordiné todo por mensaje. Una mano santa.' },
+    { name:'Gabriel P.', zona:'Mataderos', oficio:'Cerrajería', stars:5, text:'Me quedé afuera de casa a la noche. En 40 minutos tenía un cerrajero en la puerta. Salvador.' },
+  ];
   $('app').innerHTML = `
+  <!-- HERO -->
   <section class="relative overflow-hidden">
-    <div class="absolute inset-0 grad opacity-[.06]"></div>
-    <div class="mx-auto max-w-6xl px-4 py-16 sm:py-24">
-      <span class="chip mb-5"><span class="h-2 w-2 rounded-full bg-accent"></span> Publicar es 100% gratis</span>
-      <h1 class="max-w-2xl text-4xl font-extrabold leading-[1.05] tracking-tight text-navy sm:text-5xl">
-        Contanos qué necesitás.<br><span class="grad-text">Encontrá al profesional indicado cerca de vos.</span>
-      </h1>
-      <p class="mt-5 max-w-md text-lg text-muted">Plomeros, electricistas, pintores y más. Publicá tu solicitud gratis y recibí propuestas de profesionales de tu zona.</p>
-      <div class="mt-7 flex flex-wrap gap-3">
-        <a href="#/publicar" class="btn btn-primary grad px-5 py-3">Publicar mi solicitud gratis</a>
-        <a href="#/registro?rol=profesional" class="btn btn-ghost px-5 py-3">Soy profesional</a>
+    <div class="absolute inset-0 grad opacity-[.05]"></div>
+    <div class="pointer-events-none absolute -right-16 top-8 hidden h-72 w-72 rounded-full md:block" style="background:radial-gradient(circle,#1E7E8C2E,transparent 70%)"></div>
+    <div class="pointer-events-none absolute bottom-2 right-48 hidden h-56 w-56 rounded-full md:block" style="background:radial-gradient(circle,#EE7A4E26,transparent 70%)"></div>
+    <div class="relative mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 md:grid-cols-2 md:py-24">
+      <div>
+        <span class="chip mb-5"><span class="h-2 w-2 rounded-full bg-accent"></span> Publicar es 100% gratis</span>
+        <h1 class="text-4xl font-extrabold leading-[1.05] tracking-tight text-navy sm:text-5xl">
+          Contanos qué necesitás.<br><span class="grad-text">Encontrá al profesional indicado cerca de vos.</span>
+        </h1>
+        <p class="mt-5 max-w-md text-lg text-muted">Plomeros, electricistas, pintores y más. Publicá tu solicitud gratis y recibí propuestas de profesionales de tu zona.</p>
+        <div class="mt-7 flex flex-wrap gap-3">
+          <a href="#/publicar" class="btn btn-primary grad px-5 py-3">Publicar mi solicitud gratis</a>
+          <a href="#/registro?rol=profesional" class="btn btn-ghost px-5 py-3">Soy profesional</a>
+        </div>
+        <div class="mt-6 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-muted">
+          <span>✓ Profesionales verificados</span><span>✓ Sin comisiones para vos</span>
+        </div>
+      </div>
+
+      <!-- Visual: un pedido se conecta con un profesional -->
+      <div class="relative hidden h-[400px] md:block">
+        <div class="card absolute left-0 top-2 w-72 -rotate-2 p-4">
+          <div class="flex items-center justify-between">
+            <span class="grid h-9 w-9 place-items-center rounded-lg text-lg" style="background:#EE7A4E22">🚰</span>
+            <span class="chip">Plomería</span>
+          </div>
+          <p class="mt-3 font-bold text-navy">Pérdida de agua en la cocina</p>
+          <p class="mt-1 text-xs text-muted">📍 Floresta, CABA · hace 5 min</p>
+          <p class="mt-3 text-xs font-semibold text-accent">3 profesionales interesados</p>
+        </div>
+        <div class="absolute left-1/2 top-1/2 z-10 grid h-14 w-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full grad text-2xl shadow-lg">🤝</div>
+        <div class="card absolute bottom-2 right-0 w-64 rotate-2 p-4 shadow-lg">
+          <div class="flex items-center gap-3">
+            <span class="grid h-11 w-11 place-items-center rounded-xl grad font-bold text-white">C</span>
+            <div><p class="font-bold leading-tight text-navy">Carlos M.</p>
+              <p class="text-xs text-muted">Electricista matriculado</p></div>
+          </div>
+          <div class="mt-3 flex items-center gap-3 text-sm">
+            <span class="font-semibold text-amber-500">★ 4.9</span>
+            <span class="text-xs font-semibold text-accent">✓ Verificado</span>
+          </div>
+          <div class="mt-2 flex gap-1.5"><span class="chip">Caballito</span><span class="chip">Urgencias 24h</span></div>
+        </div>
       </div>
     </div>
   </section>
 
+  <!-- OFICIOS -->
+  <section class="mx-auto max-w-6xl px-4 py-12">
+    <div class="mb-6 flex items-end justify-between">
+      <h2 class="text-2xl font-bold text-navy">Oficios más buscados</h2>
+      <a href="#/publicar" class="text-sm font-semibold text-brand">Publicar →</a>
+    </div>
+    <div class="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+      ${CATEGORIES.map(c=>`<a href="#/publicar" class="card flex flex-col items-center gap-2 p-4 text-center transition hover:-translate-y-0.5">
+        <span class="text-2xl">${oficios[c[0]]||'🛠️'}</span>
+        <span class="text-sm font-medium text-navy">${c[1]}</span></a>`).join('')}
+    </div>
+  </section>
+
+  <!-- CÓMO FUNCIONA -->
   <section class="bg-white py-16">
     <div class="mx-auto max-w-6xl px-4">
       <h2 class="text-center text-2xl font-bold text-navy">¿Cómo funciona ManosYa?</h2>
@@ -186,6 +245,33 @@ function renderHome() {
         contacten tengan un interés real en realizar el trabajo. Vos solo tenés que publicar tu solicitud y elegir
         al profesional ideal para resolver tu necesidad.
       </div>
+    </div>
+  </section>
+
+  <!-- RESEÑAS -->
+  <section class="py-16">
+    <div class="mx-auto max-w-6xl px-4">
+      <h2 class="text-center text-2xl font-bold text-navy">Experiencias en ManosYa</h2>
+      <p class="mt-2 text-center text-muted">Así de simple es resolver lo que necesitás, cerca tuyo.</p>
+      <div class="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        ${reviews.map(r=>`<div class="card p-6">
+          <div class="text-amber-500">${'★'.repeat(r.stars)}<span class="text-slate-300">${'★'.repeat(5-r.stars)}</span></div>
+          <p class="mt-3 text-sm leading-relaxed text-navy">“${r.text}”</p>
+          <div class="mt-4 flex items-center gap-3">
+            <span class="grid h-9 w-9 place-items-center rounded-full grad text-sm font-bold text-white">${r.name.charAt(0)}</span>
+            <div><p class="text-sm font-bold text-navy">${r.name}</p>
+              <p class="text-xs text-muted">${r.zona} · ${r.oficio}</p></div>
+          </div></div>`).join('')}
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA FINAL -->
+  <section class="mx-auto max-w-6xl px-4 py-16">
+    <div class="card grad flex flex-col items-center gap-5 p-10 text-center text-white sm:p-14">
+      <h2 class="text-3xl font-extrabold">¿Listo para resolver lo que necesitás?</h2>
+      <p class="max-w-lg text-white/90">Publicá tu solicitud gratis y recibí propuestas de profesionales de tu zona hoy mismo.</p>
+      <a href="#/publicar" class="btn bg-white px-5 py-3 text-navy">Publicar mi solicitud gratis</a>
     </div>
   </section>`;
 }
