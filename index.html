@@ -313,7 +313,7 @@ async function renderClientePanel() {
   $('app').innerHTML = `<div class="mx-auto max-w-3xl px-4 py-8"><h1 class="text-2xl font-extrabold text-navy">Mis solicitudes</h1><p id="cl-load" class="mt-4 text-muted">Cargando…</p><div id="cl-list" class="mt-6 space-y-3"></div></div>`;
   const snap = await getDocs(query(collection(db,'jobs'), where('clientId','==',state.user.uid)));
   const jobs = snap.docs.map(d => ({ id:d.id, ...d.data() })).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
-  $('cl-load').remove();
+  $('cl-load')?.remove();
   if (!jobs.length) { $('cl-list').innerHTML = `<div class="card p-8 text-center"><p class="font-bold text-navy">Todavía no publicaste solicitudes.</p><a href="#/publicar" class="btn btn-primary grad mt-3">Publicar una</a></div>`; return; }
   $('cl-list').innerHTML = jobs.map(j => `<div class="card p-5">
     <div class="flex items-start justify-between gap-2">
@@ -346,7 +346,7 @@ async function renderProFeed() {
     const u = await getDoc(doc(db,'jobs',j.id,'unlocks',state.user.uid));
     if (u.exists()) mine.add(j.id);
   }));
-  $('fd-load').remove();
+  $('fd-load')?.remove();
 
   if (!jobs.length) { $('fd-list').innerHTML = `<p class="text-muted">No hay solicitudes abiertas por ahora.</p>`; return; }
   $('fd-list').innerHTML = jobs.map(j => {
@@ -612,7 +612,7 @@ async function renderPool() {
         <a href="#/publicar" class="btn btn-soft mt-3 w-full">Publicar solicitud</a>
       </div>`).join('') : `<div class="card p-8 text-center text-muted sm:col-span-2 lg:col-span-3">No hay profesionales que coincidan con el filtro todavía.</div>`;
   };
-  $('pl-load').remove(); draw();
+  $('pl-load')?.remove(); draw();
   $('pl_btn').onclick = draw;
 }
 
@@ -623,13 +623,15 @@ onAuthStateChanged(auth, async (user) => {
     const p = await getDoc(doc(db,'users',user.uid));
     state.profile = p.exists() ? p.data() : { role:'cliente' };
     await loadSettings();
-    if (['#/login','#/registro','#/',''].includes(location.hash) || !location.hash) {
-      location.hash = state.profile.role === 'profesional' ? '#/feed'
-        : state.profile.role === 'admin' ? '#/admin' : '#/';
-    }
   } else { state.profile = null; }
   navActions();
-  router();
+  let redirected = false;
+  if (user && (['#/login','#/registro','#/',''].includes(location.hash) || !location.hash)) {
+    const target = state.profile.role === 'profesional' ? '#/feed'
+      : state.profile.role === 'admin' ? '#/admin' : '#/';
+    if (location.hash !== target) { location.hash = target; redirected = true; } // hashchange dispara router
+  }
+  if (!redirected) router();
 });
 </script>
 </body>
