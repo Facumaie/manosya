@@ -1,8 +1,13 @@
 // Crea una preferencia de pago en Mercado Pago y registra la orden pendiente.
 // El precio se valida en el servidor (nunca se confía en el que manda el cliente).
 const admin = require('firebase-admin');
+function serviceAccount() {
+  const v = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
+  const raw = v.startsWith('{') ? v : Buffer.from(v, 'base64').toString('utf8'); // acepta JSON o base64
+  return JSON.parse(raw);
+}
 if (!admin.apps.length) {
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
+  admin.initializeApp({ credential: admin.credential.cert(serviceAccount()) });
 }
 const db = admin.firestore();
 const MP = 'https://api.mercadopago.com';

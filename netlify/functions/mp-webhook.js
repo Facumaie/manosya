@@ -1,8 +1,13 @@
 // Webhook de Mercado Pago: verifica el pago real y acredita los créditos.
 // Idempotente (campo `credited`): aunque MP reintente, no duplica créditos.
 const admin = require('firebase-admin');
+function serviceAccount() {
+  const v = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
+  const raw = v.startsWith('{') ? v : Buffer.from(v, 'base64').toString('utf8'); // acepta JSON o base64
+  return JSON.parse(raw);
+}
 if (!admin.apps.length) {
-  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
+  admin.initializeApp({ credential: admin.credential.cert(serviceAccount()) });
 }
 const db = admin.firestore();
 const MP = 'https://api.mercadopago.com';
