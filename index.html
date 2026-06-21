@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ManosYa · Encontrá al profesional que necesitás</title>
+<title>Manos a la Obra · Encontrá al profesional que necesitás</title>
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon-64.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -36,9 +36,9 @@
 
 <header class="sticky top-0 z-40 border-b border-line bg-white/85 backdrop-blur">
   <nav class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-    <a href="#/" class="flex items-center gap-2.5">
-      <img src="assets/manosya-icon.png" alt="" class="h-9 w-auto">
-      <img src="assets/manosya-wordmark.png" alt="ManosYa" class="h-5 w-auto">
+    <a href="#/" class="flex items-center gap-2">
+      <img src="assets/manos-icon.png" alt="Manos a la Obra" class="h-9 w-auto">
+      <span class="text-lg font-extrabold leading-none tracking-tight"><span class="text-brand">Manos</span> <span class="text-navy">a la Obra</span></span>
     </a>
     <div id="nav-actions" class="flex items-center gap-2"></div>
   </nav>
@@ -48,7 +48,7 @@
 
 <footer class="border-t border-line bg-white">
   <div class="mx-auto flex max-w-6xl flex-col items-center gap-3 px-4 py-7 text-sm text-muted sm:flex-row sm:justify-between">
-    <span>© <span id="year"></span> ManosYa · Hecho en Argentina 🇦🇷</span>
+    <span>© <span id="year"></span> Manos a la Obra · Hecho en Argentina 🇦🇷</span>
     <span class="flex items-center gap-2">Un producto de
       <img src="assets/fmlabs-logo.png" alt="FMLabs" class="h-5 w-auto"></span>
   </div>
@@ -56,10 +56,11 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut }
+import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
+  GoogleAuthProvider, signInWithPopup }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, collection, query, where, orderBy,
-  getDocs, runTransaction, serverTimestamp, writeBatch, increment }
+  getDocs, runTransaction, serverTimestamp, writeBatch, increment, getCountFromServer, Timestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -132,8 +133,95 @@ const catIcon = slug => (CATEGORIES.find(c => c.slug===slug)||{icon:'🛠️'}).
 const $ = id => document.getElementById(id);
 document.getElementById('year').textContent = new Date().getFullYear();
 
+// ── Foto de perfil: recorta a cuadrado, redimensiona y comprime a dataURL ──
+// (se guarda dentro del doc del profesional en Firestore; ~30-60 KB, sin Storage)
+function avatarFromFile(file, max = 320, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith('image/')) return reject(new Error('El archivo tiene que ser una imagen (JPG o PNG).'));
+    if (file.size > 12 * 1024 * 1024) return reject(new Error('La imagen es muy grande (máx 12 MB).'));
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('No se pudo procesar la imagen.'));
+      img.onload = () => {
+        const srcSide = Math.min(img.width, img.height);          // recorte cuadrado centrado
+        const side = Math.min(max, srcSide);
+        const sx = (img.width - srcSide) / 2, sy = (img.height - srcSide) / 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = side; canvas.height = side;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, sx, sy, srcSide, srcSide, 0, 0, side, side);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+// Devuelve la foto del profesional o, si no tiene, la inicial sobre un cuadro de marca.
+function proAvatar(p, sizeCls = 'h-12 w-12', textCls = 'text-lg', rounded = 'rounded-xl') {
+  const name = p.fullName || 'Profesional';
+  if (p.photo) return `<img src="${esc(p.photo)}" alt="Foto de ${esc(name)}" class="${sizeCls} ${rounded} object-cover border border-line bg-surface">`;
+  return `<div class="grid ${sizeCls} place-items-center ${rounded} grad ${textCls} font-bold text-white">${esc(name.charAt(0).toUpperCase())}</div>`;
+}
+// DNI: mantiene proporción, redimensiona a ~1100px y comprime bajando calidad hasta entrar en el tope.
+function idImageFromFile(file, maxSide = 1100, budgetBytes = 300000) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith('image/')) return reject(new Error('El archivo tiene que ser una imagen (JPG o PNG).'));
+    if (file.size > 20 * 1024 * 1024) return reject(new Error('La imagen es muy grande (máx 20 MB).'));
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('No se pudo procesar la imagen.'));
+      img.onload = () => {
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, w, h);
+        let q = 0.72, url = canvas.toDataURL('image/jpeg', q);
+        while (url.length * 0.75 > budgetBytes && q > 0.4) { q -= 0.1; url = canvas.toDataURL('image/jpeg', q); }
+        resolve(url);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+// Etiqueta visual del estado de identidad.
+const ID_BADGE = {
+  verificado: '<span class="chip font-semibold text-accent">🪪 Identidad verificada</span>',
+  pendiente:  '<span class="chip text-muted">🪪 Identidad en revisión</span>',
+  rechazado:  '<span class="chip text-red-600">🪪 Identidad rechazada</span>',
+  sin_enviar: '',
+};
+const idAdminText = s => ({ verificado:'🪪 verificada', pendiente:'🪪 en revisión', rechazado:'🪪 rechazada' })[s] || 'sin enviar';
+
 // ── Estado global ────────────────────────────────────────────────────────
-let state = { user: null, profile: null, settings: DEFAULTS };
+let state = { user: null, profile: null, settings: DEFAULTS, alerts: { pros:0, jobs:0 } };
+
+// Cuenta novedades para el admin: profesionales pendientes de verificar +
+// solicitudes nuevas desde la última vez que entró al panel (marca en localStorage).
+async function computeAdminAlerts() {
+  if (state.profile?.role !== 'admin' || !state.user) { state.alerts = { pros:0, jobs:0 }; return; }
+  const key = 'manosya_seen_jobs_' + state.user.uid;
+  let seen = +(localStorage.getItem(key) || 0);
+  if (!seen) { seen = Date.now(); localStorage.setItem(key, seen); }
+  try {
+    const prosAgg = await getCountFromServer(query(collection(db,'professionals'), where('status','==','pendiente')));
+    const jobsAgg = await getCountFromServer(query(collection(db,'jobs'), where('createdAt','>', Timestamp.fromMillis(seen))));
+    state.alerts = { pros: prosAgg.data().count, jobs: jobsAgg.data().count };
+  } catch (e) { state.alerts = { pros:0, jobs:0 }; }
+}
+function markJobsSeen() {
+  if (!state.user) return;
+  localStorage.setItem('manosya_seen_jobs_' + state.user.uid, Date.now());
+}
 
 async function loadSettings() {
   try { const s = await getDoc(doc(db,'settings','credits'));
@@ -160,7 +248,12 @@ function navActions() {
   const links = [];
   if (r === 'cliente') links.push(`<a href="#/publicar" class="btn btn-soft">Publicar</a>`,`<a href="#/profesionales" class="btn btn-ghost">Profesionales</a>`,`<a href="#/cliente" class="btn btn-ghost">Mis solicitudes</a>`);
   if (r === 'profesional') links.push(`<a href="#/feed" class="btn btn-soft">Solicitudes</a>`,`<a href="#/perfil" class="btn btn-ghost">Mi perfil</a>`,`<a href="#/wallet" class="btn btn-ghost">Mis créditos</a>`);
-  if (r === 'admin') links.push(`<a href="#/admin" class="btn btn-ghost">Admin</a>`);
+  if (r === 'admin') {
+    const a = state.alerts || { pros:0, jobs:0 };
+    const n = (a.pros||0) + (a.jobs||0);
+    const badge = n>0 ? `<span class="absolute -right-1.5 -top-1.5 grid h-5 min-w-[1.25rem] place-items-center rounded-full bg-accent px-1 text-[11px] font-bold text-white">${n>9?'9+':n}</span>` : '';
+    links.push(`<a href="#/admin" class="btn btn-ghost relative">Admin${badge}</a>`);
+  }
   el.innerHTML = links.join('') + `<button id="logout" class="btn btn-ghost">Salir</button>`;
   $('logout').onclick = async () => { await signOut(auth); location.hash = '#/'; };
 }
@@ -273,8 +366,8 @@ function renderHome() {
   <!-- CÓMO FUNCIONA -->
   <section class="bg-white py-16">
     <div class="mx-auto max-w-6xl px-4">
-      <h2 class="text-center text-2xl font-bold text-navy">¿Cómo funciona ManosYa?</h2>
-      <p class="mt-2 text-center text-muted">Para los clientes, usar ManosYa es completamente gratis.</p>
+      <h2 class="text-center text-2xl font-bold text-navy">¿Cómo funciona Manos a la Obra?</h2>
+      <p class="mt-2 text-center text-muted">Para los clientes, usar Manos a la Obra es completamente gratis.</p>
       <div class="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
         ${steps.map((s,i)=>`<div class="card p-6">
           <div class="mb-3 grid h-11 w-11 place-items-center rounded-xl grad text-lg">${s[0]}</div>
@@ -293,7 +386,7 @@ function renderHome() {
   <!-- RESEÑAS -->
   <section class="py-16">
     <div class="mx-auto max-w-6xl px-4">
-      <h2 class="text-center text-2xl font-bold text-navy">Experiencias en ManosYa</h2>
+      <h2 class="text-center text-2xl font-bold text-navy">Experiencias en Manos a la Obra</h2>
       <p class="mt-2 text-center text-muted">Así de simple es resolver lo que necesitás, cerca tuyo.</p>
       <div class="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         ${reviews.map(r=>`<div class="card p-6">
@@ -325,7 +418,7 @@ function renderAuth(mode) {
   $('app').innerHTML = `
   <div class="mx-auto grid min-h-[70vh] max-w-md place-items-center px-4 py-10">
     <div class="card w-full p-8">
-      <img src="assets/manosya-logo.png" alt="ManosYa" class="mx-auto mb-5 h-24 w-auto">
+      <img src="assets/manos-logo-full.png" alt="Manos a la Obra" class="mx-auto mb-5 h-24 w-auto">
       <h1 class="text-2xl font-extrabold text-navy">${isReg ? 'Creá tu cuenta' : 'Ingresá a tu cuenta'}</h1>
       ${isReg ? `<div id="roltabs" class="mt-5 grid grid-cols-2 gap-2 rounded-xl bg-surface p-1">
         <button data-rol="cliente" class="roltab rounded-lg py-2 text-sm font-semibold">Busco profesional</button>
@@ -338,6 +431,12 @@ function renderAuth(mode) {
         <p id="autherr" class="text-sm text-red-600" hidden></p>
         <button class="btn btn-primary grad w-full py-3">${isReg ? 'Crear cuenta' : 'Ingresar'}</button>
       </form>
+
+      <div class="my-4 flex items-center gap-3 text-xs text-muted"><span class="h-px flex-1 bg-line"></span>o<span class="h-px flex-1 bg-line"></span></div>
+      <button id="gbtn" type="button" class="btn btn-ghost w-full py-3">
+        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.4 29.3 35 24 35c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.7-8 19.7-20 0-1.3-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.4 0 10.3-2.1 14-5.5l-6.5-5.3C29.6 34.7 26.9 35 24 35c-5.3 0-9.7-2.6-11.3-7l-6.5 5C9.6 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.5 5.3C41.9 35.6 44 30.3 44 24c0-1.3-.1-2.3-.4-3.5z"/></svg>
+        Continuar con Google
+      </button>
       <p class="mt-5 text-center text-sm text-muted">
         ${isReg ? '¿Ya tenés cuenta? <a href="#/login" class="font-semibold text-brand">Ingresá</a>'
                 : '¿No tenés cuenta? <a href="#/registro" class="font-semibold text-brand">Registrate</a>'}
@@ -362,12 +461,7 @@ function renderAuth(mode) {
         const cred = await createUserWithEmailAndPassword(auth, email, pass);
         const u = cred.user.uid;
         await setDoc(doc(db,'users',u), { role: rol, fullName: name, email, createdAt: serverTimestamp() });
-        if (rol === 'profesional') {
-          await setDoc(doc(db,'professionals',u), { status:'pendiente', fullName:name, headline:'', city:'', categories:[], createdAt: serverTimestamp() });
-          const w = state.settings.welcome ?? DEFAULTS.welcome;
-          await setDoc(doc(db,'wallets',u), { balance:w, lifetimePurchased:0, lifetimeSpent:0 });
-          await addDoc(collection(db,'wallets',u,'ledger'), { type:'bonificacion', amount:w, balanceAfter:w, note:'Créditos de bienvenida', at: serverTimestamp() });
-        }
+        if (rol === 'profesional') await provisionProfessional(u, name);
       } else {
         await signInWithEmailAndPassword(auth, email, pass);
       }
@@ -376,6 +470,48 @@ function renderAuth(mode) {
       err.textContent = traducirError(ex.code) ; err.hidden = false;
     }
   };
+
+  $('gbtn')?.addEventListener('click', () => signInGoogle(rol));
+}
+
+// Da de alta el doc de profesional + wallet con créditos de bienvenida.
+async function provisionProfessional(uid, name) {
+  await setDoc(doc(db,'professionals',uid), { status:'pendiente', idStatus:'sin_enviar', fullName:name||'', headline:'', city:'', categories:[], createdAt: serverTimestamp() });
+  const w = state.settings.welcome ?? DEFAULTS.welcome;
+  await setDoc(doc(db,'wallets',uid), { balance:w, lifetimePurchased:0, lifetimeSpent:0 });
+  await addDoc(collection(db,'wallets',uid,'ledger'), { type:'bonificacion', amount:w, balanceAfter:w, note:'Créditos de bienvenida', at: serverTimestamp() });
+}
+
+// Acceso con Google. Si la cuenta es nueva, la da de alta con el rol elegido
+// (cliente por defecto). Si ya existe, simplemente ingresa con su rol guardado.
+async function signInGoogle(desiredRole) {
+  const err = $('autherr'); if (err) err.hidden = true;
+  const btn = $('gbtn'); if (btn) { btn.disabled = true; btn.style.opacity = '.6'; }
+  try {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    const { user } = await signInWithPopup(auth, provider);
+    const uref = doc(db,'users',user.uid);
+    const snap = await getDoc(uref);
+    if (!snap.exists()) {
+      const role = desiredRole === 'profesional' ? 'profesional' : 'cliente';
+      const name = user.displayName || '';
+      await setDoc(uref, { role, fullName:name, email:user.email||'', createdAt: serverTimestamp() });
+      if (role === 'profesional') await provisionProfessional(user.uid, name);
+      state.profile = { role, fullName:name, email:user.email||'' };
+    } else {
+      state.profile = snap.data();
+    }
+    await loadSettings(); await computeAdminAlerts(); navActions();
+    const target = state.profile.role === 'profesional' ? '#/feed'
+      : state.profile.role === 'admin' ? '#/admin' : '#/';
+    if (location.hash !== target) location.hash = target; else router();
+  } catch (ex) {
+    if (ex.code === 'auth/cancelled-popup-request') return;   // doble click: ignorar
+    if (err) { err.textContent = traducirError(ex.code); err.hidden = false; }
+  } finally {
+    const b = $('gbtn'); if (b) { b.disabled = false; b.style.opacity = ''; }
+  }
 }
 function traducirError(code){
   return ({
@@ -383,6 +519,10 @@ function traducirError(code){
     'auth/email-already-in-use':'Ese email ya está registrado.',
     'auth/weak-password':'La contraseña es muy corta.',
     'auth/invalid-email':'Email inválido.',
+    'auth/popup-closed-by-user':'Cerraste la ventana de Google antes de terminar.',
+    'auth/popup-blocked':'El navegador bloqueó la ventana emergente. Permitila e intentá de nuevo.',
+    'auth/account-exists-with-different-credential':'Ya existe una cuenta con ese email creada con otro método. Ingresá con email y contraseña.',
+    'auth/unauthorized-domain':'Este dominio no está habilitado en Firebase (Authentication → Settings → Authorized domains).',
   })[code] || 'No se pudo completar. Probá de nuevo.';
 }
 
@@ -621,7 +761,12 @@ async function renderProWallet() {
 
 // ── ADMIN ────────────────────────────────────────────────────────────────
 async function renderAdmin() {
+  await computeAdminAlerts();                 // cuenta novedades frescas
+  const newJobs = state.alerts.jobs || 0;     // solicitudes nuevas desde la última visita
+  markJobsSeen();                             // a partir de ahora quedan "vistas"
+
   $('app').innerHTML = `<div class="mx-auto max-w-5xl px-4 py-8"><h1 class="text-2xl font-extrabold text-navy">Administración</h1>
+    <div id="ad-alerts" class="mt-4"></div>
     <h2 class="mt-6 mb-3 text-lg font-bold text-navy">Profesionales</h2>
     <div id="ad-pros" class="card divide-y divide-line"><p class="p-4 text-muted">Cargando…</p></div>
     <h2 class="mt-8 mb-3 text-lg font-bold text-navy">Configuración de créditos</h2>
@@ -634,14 +779,31 @@ async function renderAdmin() {
   const pros = pSnap.docs.map(d=>({id:d.id,...d.data()}));
   const wallets = {};
   await Promise.all(pros.map(async p => { const w = await getDoc(doc(db,'wallets',p.id)); wallets[p.id] = w.exists()?w.data().balance||0:0; }));
+
+  // Banner de novedades
+  const pendVerif = pros.filter(p => p.status === 'pendiente').length;
+  const pendId    = pros.filter(p => p.idStatus === 'pendiente').length;
+  const alertRows = [];
+  if (newJobs>0)   alertRows.push(`🆕 <b>${newJobs}</b> ${newJobs===1?'solicitud nueva':'solicitudes nuevas'} desde tu última visita.`);
+  if (pendVerif>0) alertRows.push(`🧑‍🔧 <b>${pendVerif}</b> ${pendVerif===1?'profesional espera':'profesionales esperan'} aprobación.`);
+  if (pendId>0)    alertRows.push(`🪪 <b>${pendId}</b> ${pendId===1?'identidad pendiente':'identidades pendientes'} de verificar.`);
+  $('ad-alerts').innerHTML = alertRows.length
+    ? `<div class="card border-l-4 border-accent bg-accent/5 p-4"><p class="font-bold text-navy">Novedades</p>
+        <ul class="mt-1 space-y-0.5 text-sm text-navy">${alertRows.map(r=>`<li>${r}</li>`).join('')}</ul></div>`
+    : `<div class="card p-4 text-sm text-muted">✓ Estás al día. No hay novedades.</div>`;
+
   $('ad-pros').innerHTML = pros.length ? pros.map(p => `<div class="flex flex-wrap items-center justify-between gap-3 p-4" data-pro="${p.id}">
-      <div><p class="font-medium text-navy">${esc(p.fullName||'(sin nombre)')}</p>
-        <p class="text-xs text-muted">Estado: ${p.status} · Saldo: <b>${wallets[p.id]}</b> créditos</p></div>
+      <div class="flex items-center gap-3">
+        ${proAvatar(p, 'h-10 w-10', 'text-base', 'rounded-lg')}
+        <div><p class="font-medium text-navy">${esc(p.fullName||'(sin nombre)')}</p>
+          <p class="text-xs text-muted">Estado: ${p.status} · Identidad: ${idAdminText(p.idStatus)} · Saldo: <b>${wallets[p.id]}</b> créditos</p></div></div>
       <div class="flex items-center gap-2">
+        ${(p.idStatus && p.idStatus!=='sin_enviar') ? `<button class="btn btn-ghost see-dni">🪪 Ver DNI</button>` : ''}
         ${p.status!=='aprobado' ? `<button class="btn btn-soft approve">Aprobar</button>` : `<span class="chip text-accent">Verificado ✓</span>`}
         <input type="number" placeholder="±créd" class="input w-24 adj-amt">
         <button class="btn btn-ghost adj-btn">Cargar/quitar</button>
-      </div></div>`).join('') : `<p class="p-4 text-muted">No hay profesionales todavía.</p>`;
+      </div>
+      <div class="id-slot basis-full" hidden></div></div>`).join('') : `<p class="p-4 text-muted">No hay profesionales todavía.</p>`;
 
   document.querySelectorAll('#ad-pros [data-pro]').forEach(row => {
     const id = row.dataset.pro;
@@ -654,7 +816,42 @@ async function renderAdmin() {
       await adminAdjust(id, amt);
       renderAdmin();
     });
+    const seeBtn = row.querySelector('.see-dni');
+    if (seeBtn) {
+      const slot = row.querySelector('.id-slot');
+      seeBtn.addEventListener('click', async () => {
+        if (!slot.hidden) { slot.hidden = true; slot.innerHTML = ''; return; }   // alternar
+        slot.hidden = false; slot.innerHTML = `<p class="p-2 text-sm text-muted">Cargando documento…</p>`;
+        try {
+          const s = await getDoc(doc(db,'identidades',id));
+          if (!s.exists()) { slot.innerHTML = `<p class="p-2 text-sm text-muted">No hay documento cargado.</p>`; return; }
+          const d = s.data();
+          slot.innerHTML = `<div class="mt-2 rounded-xl border border-line p-3">
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div><p class="label">Frente</p>${d.dniFrente?`<img src="${esc(d.dniFrente)}" alt="DNI frente" class="w-full rounded-lg border border-line">`:'<p class="text-sm text-muted">—</p>'}</div>
+              <div><p class="label">Dorso</p>${d.dniDorso?`<img src="${esc(d.dniDorso)}" alt="DNI dorso" class="w-full rounded-lg border border-line">`:'<p class="text-sm text-muted">—</p>'}</div>
+            </div>
+            ${d.dniNumero?`<p class="mt-2 text-sm text-navy">N° de DNI declarado: <b>${esc(d.dniNumero)}</b></p>`:''}
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button class="btn btn-primary grad id-verify">✓ Verificar identidad</button>
+              <button class="btn btn-ghost id-reject">Rechazar</button>
+            </div></div>`;
+          slot.querySelector('.id-verify').onclick = async (ev) => {
+            ev.target.disabled = true; ev.target.textContent = 'Verificando…';
+            await updateDoc(doc(db,'professionals',id), { idStatus:'verificado', idRejectReason:'' });
+            renderAdmin();
+          };
+          slot.querySelector('.id-reject').onclick = async () => {
+            const reason = (prompt('Motivo del rechazo (opcional):','') || '').trim();
+            await updateDoc(doc(db,'professionals',id), { idStatus:'rechazado', idRejectReason:reason });
+            renderAdmin();
+          };
+        } catch (ex) { slot.innerHTML = `<p class="p-2 text-sm text-red-600">No se pudo leer el documento: ${esc(ex.message)}</p>`; }
+      });
+    }
   });
+
+  await computeAdminAlerts(); navActions();   // refresca el badge del nav (ya marcadas como vistas)
 
   // Configuración (costos + bienvenida + máx desbloqueos)
   const s = state.settings;
@@ -733,6 +930,20 @@ async function renderProProfile() {
     <p class="mt-1 text-muted">Completá tu perfil para aparecer en el listado que ven los clientes.
       ${verif ? '<span class="text-accent font-semibold">Estás verificado ✓</span>' : 'Tu perfil aparece una vez que el equipo lo verifica.'}</p>
     <form id="pf" class="card mt-6 space-y-5 p-6">
+      <div class="flex items-center gap-4">
+        <div id="p_photo_prev" class="shrink-0">${proAvatar({ fullName: p.fullName||state.profile?.fullName, photo: p.photo }, 'h-20 w-20', 'text-2xl', 'rounded-full')}</div>
+        <div class="min-w-0">
+          <span class="label">Tu foto</span>
+          <p class="mb-2 text-xs text-muted">Una foto clara de tu cara le da seguridad al cliente sobre quién va a ir a su casa.</p>
+          <div class="flex flex-wrap gap-2">
+            <label class="btn btn-soft cursor-pointer">📷 ${p.photo?'Cambiar foto':'Subir foto'}
+              <input id="p_photo_input" type="file" accept="image/*" class="hidden">
+            </label>
+            <button type="button" id="p_photo_remove" class="btn btn-ghost" ${p.photo?'':'hidden'}>Quitar</button>
+          </div>
+          <p id="p_photo_msg" class="mt-1 text-xs" hidden></p>
+        </div>
+      </div>
       <div><label class="label">Título / especialidad principal</label><input id="p_head" class="input" value="${esc(p.headline||'')}" placeholder="Ej: Plomero matriculado · 15 años"></div>
       <div><label class="label">Zona / barrio donde trabajás</label><input id="p_city" class="input" value="${esc(p.city||'')}" placeholder="Ej: Floresta, CABA"></div>
       <div><label class="label">WhatsApp</label><input id="p_wa" class="input" value="${esc(p.whatsapp||'')}" placeholder="Ej: 11 5555 5555"></div>
@@ -746,13 +957,112 @@ async function renderProProfile() {
       </div>
       <p id="pf-msg" class="text-sm text-accent" hidden></p>
       <button class="btn btn-primary grad w-full py-3">Guardar perfil</button>
-    </form></div>`;
+    </form>
+
+    <div class="card mt-6 p-6">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-lg font-bold text-navy">Verificación de identidad</h2>
+        ${ID_BADGE[p.idStatus||'sin_enviar']||''}
+      </div>
+      <div id="id-body" class="mt-3"></div>
+    </div>
+    </div>`;
+
+  // ── Foto de perfil (en memoria hasta que se guarda) ──
+  let photoData = p.photo || '';
+  const photoMsg = $('p_photo_msg');
+  const refreshPhoto = () => {
+    $('p_photo_prev').innerHTML = proAvatar({ fullName: p.fullName||state.profile?.fullName, photo: photoData }, 'h-20 w-20', 'text-2xl', 'rounded-full');
+    $('p_photo_remove').hidden = !photoData;
+  };
+  $('p_photo_input').onchange = async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    photoMsg.hidden = true;
+    try {
+      photoData = await avatarFromFile(file);
+      refreshPhoto();
+      photoMsg.textContent = '✓ Foto lista. Acordate de guardar el perfil.'; photoMsg.style.color = '#176B79'; photoMsg.hidden = false;
+    } catch (ex) {
+      photoMsg.textContent = ex.message; photoMsg.style.color = '#b91c1c'; photoMsg.hidden = false;
+    } finally { e.target.value = ''; }
+  };
+  $('p_photo_remove').onclick = () => { photoData = ''; refreshPhoto(); photoMsg.hidden = true; };
+
+  // ── Verificación de identidad (DNI) ──
+  const idStatus = p.idStatus || 'sin_enviar';
+  const idRef = doc(db,'identidades',state.user.uid);
+  let idFrente = '', idDorso = '', idNum = '';
+  // Para estados ya enviados, traemos lo cargado (solo lo ve el dueño/admin por reglas)
+  if (idStatus === 'pendiente' || idStatus === 'rechazado') {
+    try { const s = await getDoc(idRef); if (s.exists()) { idFrente = s.data().dniFrente||''; idDorso = s.data().dniDorso||''; idNum = s.data().dniNumero||''; } } catch {}
+  }
+  const idThumb = (data, txt) => data
+    ? `<img src="${esc(data)}" alt="${txt}" class="h-28 w-full rounded-lg object-cover border border-line bg-surface">`
+    : `<div class="grid h-28 w-full place-items-center rounded-lg border border-dashed border-line text-xs text-muted">${txt}</div>`;
+
+  function renderIdForm(extraTop = '') {
+    $('id-body').innerHTML = `${extraTop}
+      <p class="text-sm text-muted">Subí una foto nítida del <b>frente</b> y del <b>dorso</b> de tu DNI. Solo el equipo de Manos a la Obra las usa para confirmar tu identidad: <b>nunca</b> se les muestran a los clientes.</p>
+      <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <div><span class="label">DNI · Frente</span>
+          <div id="idf-prev">${idThumb(idFrente,'Sin imagen')}</div>
+          <label class="btn btn-soft mt-2 w-full cursor-pointer">Elegir foto<input id="idf-input" type="file" accept="image/*" class="hidden"></label></div>
+        <div><span class="label">DNI · Dorso</span>
+          <div id="idd-prev">${idThumb(idDorso,'Sin imagen')}</div>
+          <label class="btn btn-soft mt-2 w-full cursor-pointer">Elegir foto<input id="idd-input" type="file" accept="image/*" class="hidden"></label></div>
+      </div>
+      <div class="mt-3"><label class="label">Número de DNI (opcional)</label><input id="id-num" class="input" placeholder="Ej: 30.123.456" value="${esc(idNum)}"></div>
+      <p id="id-msg" class="mt-2 text-sm" hidden></p>
+      <button id="id-submit" class="btn btn-primary grad mt-4 w-full py-3">Enviar para verificación</button>`;
+    const idMsg = $('id-msg');
+    const wire = (inputId, prevId, set) => {
+      $(inputId).onchange = async (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        idMsg.hidden = true;
+        try { const url = await idImageFromFile(file); set(url); $(prevId).innerHTML = idThumb(url,''); }
+        catch (ex) { idMsg.textContent = ex.message; idMsg.style.color='#b91c1c'; idMsg.hidden=false; }
+        finally { e.target.value=''; }
+      };
+    };
+    wire('idf-input','idf-prev', v => idFrente=v);
+    wire('idd-input','idd-prev', v => idDorso=v);
+    $('id-submit').onclick = async () => {
+      if (!idFrente || !idDorso) { idMsg.textContent='Subí el frente y el dorso del DNI.'; idMsg.style.color='#b91c1c'; idMsg.hidden=false; return; }
+      const btn = $('id-submit'); btn.disabled=true; btn.textContent='Enviando…';
+      try {
+        await setDoc(idRef, { dniFrente:idFrente, dniDorso:idDorso, dniNumero:$('id-num').value.trim(), submittedAt: serverTimestamp() }, { merge:true });
+        await setDoc(ref, { idStatus:'pendiente', idRejectReason:'' }, { merge:true });
+        renderIdSent();
+      } catch (ex) { idMsg.textContent='No se pudo enviar: '+ex.message; idMsg.style.color='#b91c1c'; idMsg.hidden=false; btn.disabled=false; btn.textContent='Enviar para verificación'; }
+    };
+  }
+  function renderIdSent() {
+    $('id-body').innerHTML = `<div class="rounded-xl bg-surface p-4 text-sm">
+      <p class="font-semibold text-navy">📨 Documento enviado</p>
+      <p class="mt-1 text-muted">Está en revisión. Te aparecerá el sello <b>🪪 Identidad verificada</b> cuando el equipo lo apruebe.</p>
+      <button id="id-redo" class="btn btn-ghost mt-3">Volver a enviar las fotos</button></div>`;
+    $('id-redo').onclick = () => renderIdForm();
+  }
+
+  if (idStatus === 'verificado') {
+    $('id-body').innerHTML = `<div class="rounded-xl bg-accent/10 p-4 text-sm">
+      <p class="font-semibold text-accent">✓ Tu identidad está verificada</p>
+      <p class="mt-1 text-muted">Los clientes ven el sello <b>🪪 Identidad verificada</b> en tu perfil. Esto les da seguridad sobre quién va a ir a su casa.</p></div>`;
+  } else if (idStatus === 'pendiente') {
+    renderIdSent();
+  } else if (idStatus === 'rechazado') {
+    renderIdForm(`<div class="mb-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+      Tu verificación fue rechazada${p.idRejectReason?`: <b>${esc(p.idRejectReason)}</b>`:''}. Revisá las fotos y volvé a enviarlas.</div>`);
+  } else {
+    renderIdForm();
+  }
+
   $('pf').onsubmit = async (e) => {
     e.preventDefault();
     const cats = [...document.querySelectorAll('.catck:checked')].map(c=>c.value);
     try {
       await setDoc(ref, { headline:$('p_head').value.trim(), city:$('p_city').value.trim(),
-        whatsapp:$('p_wa').value.trim(), bio:$('p_bio').value.trim(), categories:cats }, { merge:true });
+        whatsapp:$('p_wa').value.trim(), bio:$('p_bio').value.trim(), categories:cats, photo:photoData }, { merge:true });
       const m=$('pf-msg'); m.textContent='✅ Perfil guardado.'; m.hidden=false;
     } catch (ex) { const m=$('pf-msg'); m.style.color='#b91c1c'; m.textContent='No se pudo guardar: '+ex.message; m.hidden=false; }
   };
@@ -780,10 +1090,11 @@ async function renderPool() {
       (!fcity || (p.city||'').toLowerCase().includes(fcity)));
     $('pl-list').innerHTML = list.length ? list.map(p => `<div class="card p-5">
         <div class="flex items-center gap-3">
-          <div class="grid h-12 w-12 place-items-center rounded-xl grad text-lg font-bold text-white">${esc((p.fullName||'?').charAt(0).toUpperCase())}</div>
+          ${proAvatar(p)}
           <div><p class="font-bold text-navy">${esc(p.fullName||'Profesional')}</p>
             <p class="text-xs font-semibold text-accent">✓ Verificado</p></div>
         </div>
+        ${p.idStatus==='verificado' ? `<p class="mt-2 inline-flex items-center gap-1 rounded-lg bg-accent/10 px-2 py-1 text-xs font-semibold text-accent">🪪 Identidad verificada</p>` : ''}
         <p class="mt-2 text-sm text-muted">${esc(p.headline||'Profesional')}</p>
         <div class="mt-2 flex flex-wrap gap-1.5">${(p.categories||[]).slice(0,4).map(c=>`<span class="chip">${catName(c)}</span>`).join('')}</div>
         <p class="mt-2 text-xs text-muted">📍 ${esc(p.city||'—')}</p>
@@ -802,7 +1113,8 @@ onAuthStateChanged(auth, async (user) => {
     const p = await getDoc(doc(db,'users',user.uid));
     state.profile = p.exists() ? p.data() : { role:'cliente' };
     await loadSettings();
-  } else { state.profile = null; }
+    await computeAdminAlerts();
+  } else { state.profile = null; state.alerts = { pros:0, jobs:0 }; }
   navActions();
   let redirected = false;
   if (user && (['#/login','#/registro','#/',''].includes(location.hash) || !location.hash)) {
