@@ -84,17 +84,51 @@ const DEFAULTS = {
     { credits: 50, price: 16000 }, { credits: 100, price: 28000 },
   ],
 };
-const CATEGORIES = [
-  ['plomeria','Plomería'],['electricidad','Electricidad'],['pintura','Pintura'],['albanileria','Albañilería'],
-  ['limpieza','Limpieza'],['jardineria','Jardinería'],['gas','Gasista'],['carpinteria','Carpintería'],
-  ['cerrajeria','Cerrajería'],['aire','Aire acondicionado'],['mudanzas','Fletes y mudanzas'],['herreria','Herrería'],
+const CAT_GROUPS = [['oficio','Oficios'],['profesional','Profesionales'],['digital','Digital y creativo']];
+const DEFAULT_CATEGORIES = [
+  { slug:'plomeria', name:'Plomería', group:'oficio', icon:'🚰' },
+  { slug:'electricidad', name:'Electricidad', group:'oficio', icon:'⚡' },
+  { slug:'pintura', name:'Pintura', group:'oficio', icon:'🎨' },
+  { slug:'albanileria', name:'Albañilería', group:'oficio', icon:'🧱' },
+  { slug:'limpieza', name:'Limpieza', group:'oficio', icon:'🧽' },
+  { slug:'jardineria', name:'Jardinería', group:'oficio', icon:'🌿' },
+  { slug:'gas', name:'Gasista', group:'oficio', icon:'🔥' },
+  { slug:'carpinteria', name:'Carpintería', group:'oficio', icon:'🪚' },
+  { slug:'cerrajeria', name:'Cerrajería', group:'oficio', icon:'🔑' },
+  { slug:'aire', name:'Aire acondicionado', group:'oficio', icon:'❄️' },
+  { slug:'mudanzas', name:'Fletes, mudanzas y camiones', group:'oficio', icon:'🚚' },
+  { slug:'herreria', name:'Herrería', group:'oficio', icon:'⚒️' },
+  { slug:'abogado', name:'Abogado', group:'profesional', icon:'⚖️' },
+  { slug:'contador', name:'Contador', group:'profesional', icon:'🧮' },
+  { slug:'gestor', name:'Gestoría', group:'profesional', icon:'🗂️' },
+  { slug:'escribano', name:'Escribano', group:'profesional', icon:'📜' },
+  { slug:'arquitecto', name:'Arquitecto', group:'profesional', icon:'📐' },
+  { slug:'traductor', name:'Traductor', group:'profesional', icon:'🌐' },
+  { slug:'corredor', name:'Corredor inmobiliario', group:'profesional', icon:'🏢' },
+  { slug:'seguros', name:'Asesor de seguros', group:'profesional', icon:'🛡️' },
+  { slug:'clases', name:'Clases particulares', group:'profesional', icon:'📚' },
+  { slug:'diseno', name:'Diseño gráfico', group:'digital', icon:'🖌️' },
+  { slug:'marketing', name:'Marketing digital', group:'digital', icon:'📣' },
+  { slug:'desarrollo', name:'Desarrollo web', group:'digital', icon:'💻' },
+  { slug:'fotografia', name:'Fotografía', group:'digital', icon:'📷' },
+  { slug:'redes', name:'Community manager', group:'digital', icon:'📱' },
 ];
+let CATEGORIES = DEFAULT_CATEGORIES.slice();      // se sobreescribe desde Firestore al iniciar
+const catsByGroup = g => CATEGORIES.filter(c => c.group === g);
+const slugify = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+function catOptions(sel='') {
+  return CAT_GROUPS.map(([g,label]) => {
+    const items = catsByGroup(g); if (!items.length) return '';
+    return `<optgroup label="${label}">${items.map(c=>`<option value="${c.slug}" ${c.slug===sel?'selected':''}>${c.name}</option>`).join('')}</optgroup>`;
+  }).join('');
+}
 const SIZE_LABEL = { pequeno: 'Normal', mediano: 'Importante', urgente: 'Urgente / alto valor' };
 const TXN_LABEL = { compra:'Carga', consumo:'Desbloqueo', reembolso:'Reembolso', bonificacion:'Bienvenida', ajuste_admin:'Ajuste' };
 
 const ARS = n => new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}).format(n||0);
 const esc = s => (s??'').toString().replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const catName = slug => (CATEGORIES.find(c => c[0]===slug)||[,'—'])[1];
+const catName = slug => (CATEGORIES.find(c => c.slug===slug)||{name:'—'}).name;
+const catIcon = slug => (CATEGORIES.find(c => c.slug===slug)||{icon:'🛠️'}).icon;
 const $ = id => document.getElementById(id);
 document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -104,6 +138,14 @@ let state = { user: null, profile: null, settings: DEFAULTS };
 async function loadSettings() {
   try { const s = await getDoc(doc(db,'settings','credits'));
     if (s.exists()) state.settings = { ...DEFAULTS, ...s.data() }; } catch {}
+}
+async function loadCategories() {
+  try { const s = await getDoc(doc(db,'settings','categories'));
+    if (s.exists() && Array.isArray(s.data().items) && s.data().items.length) CATEGORIES = s.data().items; } catch {}
+}
+async function saveCategories() {
+  try { await setDoc(doc(db,'settings','categories'), { items: CATEGORIES }); }
+  catch (e) { alert('No se pudo guardar: ' + e.message); }
 }
 
 // ── Navegación ───────────────────────────────────────────────────────────
@@ -154,9 +196,6 @@ function renderHome() {
     ['⭐','Elegí con confianza','Compará calificaciones y elegí al que más te cierre.'],
     ['🤝','Coordiná el trabajo','Contactalo y arreglá los detalles directamente.'],
   ];
-  const oficios = { plomeria:'🚰', electricidad:'⚡', pintura:'🎨', albanileria:'🧱', limpieza:'🧽',
-    jardineria:'🌿', gas:'🔥', carpinteria:'🪚', cerrajeria:'🔑', aire:'❄️', mudanzas:'🚚', herreria:'⚒️' };
-  // Reseñas de ejemplo — reemplazar por reales apenas haya. Editá libremente este array.
   const reviews = [
     { name:'María Elena', zona:'Caballito', oficio:'Electricidad', stars:5, text:'Se me cortó la luz en media casa un domingo. Publiqué y en menos de una hora me escribieron tres electricistas. Vino uno matriculado y lo resolvió en el momento.' },
     { name:'Damián R.', zona:'Villa Urquiza', oficio:'Plomería', stars:5, text:'Tenía una pérdida que venía pateando hace meses. Cargué la solicitud, elegí al que mejor me habló y quedó impecable. Re fácil de usar.' },
@@ -177,7 +216,7 @@ function renderHome() {
         <h1 class="text-4xl font-extrabold leading-[1.05] tracking-tight text-navy sm:text-5xl">
           Contanos qué necesitás.<br><span class="grad-text">Encontrá al profesional indicado cerca de vos.</span>
         </h1>
-        <p class="mt-5 max-w-md text-lg text-muted">Plomeros, electricistas, pintores y más. Publicá tu solicitud gratis y recibí propuestas de profesionales de tu zona.</p>
+        <p class="mt-5 max-w-md text-lg text-muted">Plomeros, electricistas, contadores, abogados y más. Publicá tu solicitud gratis y recibí propuestas de profesionales de tu zona.</p>
         <div class="mt-7 flex flex-wrap gap-3">
           <a href="#/publicar" class="btn btn-primary grad px-5 py-3">Publicar mi solicitud gratis</a>
           <a href="#/registro?rol=profesional" class="btn btn-ghost px-5 py-3">Soy profesional</a>
@@ -203,13 +242,13 @@ function renderHome() {
           <div class="flex items-center gap-3">
             <span class="grid h-11 w-11 place-items-center rounded-xl grad font-bold text-white">C</span>
             <div><p class="font-bold leading-tight text-navy">Carlos M.</p>
-              <p class="text-xs text-muted">Electricista matriculado</p></div>
+              <p class="text-xs text-muted">Plomero matriculado</p></div>
           </div>
           <div class="mt-3 flex items-center gap-3 text-sm">
             <span class="font-semibold text-amber-500">★ 4.9</span>
             <span class="text-xs font-semibold text-accent">✓ Verificado</span>
           </div>
-          <div class="mt-2 flex gap-1.5"><span class="chip">Caballito</span><span class="chip">Urgencias 24h</span></div>
+          <div class="mt-2 flex gap-1.5"><span class="chip">Floresta</span><span class="chip">Urgencias 24h</span></div>
         </div>
       </div>
     </div>
@@ -218,14 +257,17 @@ function renderHome() {
   <!-- OFICIOS -->
   <section class="mx-auto max-w-6xl px-4 py-12">
     <div class="mb-6 flex items-end justify-between">
-      <h2 class="text-2xl font-bold text-navy">Oficios más buscados</h2>
+      <h2 class="text-2xl font-bold text-navy">Todo lo que podés resolver</h2>
       <a href="#/publicar" class="text-sm font-semibold text-brand">Publicar →</a>
     </div>
-    <div class="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-      ${CATEGORIES.map(c=>`<a href="#/publicar" class="card flex flex-col items-center gap-2 p-4 text-center transition hover:-translate-y-0.5">
-        <span class="text-2xl">${oficios[c[0]]||'🛠️'}</span>
-        <span class="text-sm font-medium text-navy">${c[1]}</span></a>`).join('')}
-    </div>
+    ${CAT_GROUPS.map(([g,label])=>{ const items=catsByGroup(g); if(!items.length) return '';
+      return `<div class="mb-8">
+        <h3 class="mb-3 text-sm font-bold uppercase tracking-wide text-muted">${label}</h3>
+        <div class="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+          ${items.map(c=>`<a href="#/publicar" class="card flex flex-col items-center gap-2 p-4 text-center transition hover:-translate-y-0.5">
+            <span class="text-2xl">${c.icon||'🛠️'}</span>
+            <span class="text-sm font-medium text-navy">${c.name}</span></a>`).join('')}
+        </div></div>`; }).join('')}
   </section>
 
   <!-- CÓMO FUNCIONA -->
@@ -354,7 +396,7 @@ function renderPublicar() {
       <div><label class="label">¿Qué necesitás resolver?</label><input id="j_title" required class="input" placeholder="Ej: Reparar pérdida de agua en cocina"></div>
       <div><label class="label">Detalle</label><textarea id="j_desc" required rows="4" class="input" placeholder="Contá lo más posible: qué pasa, hace cuánto, etc."></textarea></div>
       <div class="grid gap-4 sm:grid-cols-2">
-        <div><label class="label">Oficio</label><select id="j_cat" class="input">${CATEGORIES.map(c=>`<option value="${c[0]}">${c[1]}</option>`).join('')}</select></div>
+        <div><label class="label">Servicio</label><select id="j_cat" class="input">${catOptions()}</select></div>
         <div><label class="label">Urgencia</label><select id="j_size" class="input">
           <option value="pequeno">Normal</option><option value="mediano">Importante</option><option value="urgente">Urgente / alto valor</option></select></div>
       </div>
@@ -401,13 +443,27 @@ async function renderClientePanel() {
   const jobs = snap.docs.map(d => ({ id:d.id, ...d.data() })).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
   $('cl-load')?.remove();
   if (!jobs.length) { $('cl-list').innerHTML = `<div class="card p-8 text-center"><p class="font-bold text-navy">Todavía no publicaste solicitudes.</p><a href="#/publicar" class="btn btn-primary grad mt-3">Publicar una</a></div>`; return; }
-  $('cl-list').innerHTML = jobs.map(j => `<div class="card p-5">
-    <div class="flex items-start justify-between gap-2">
-      <div><h3 class="font-bold text-navy">${esc(j.title)}</h3><p class="text-xs text-muted">${catName(j.categorySlug)} · ${esc(j.city||'CABA')}</p></div>
-      <span class="chip">${j.unlocksCount||0}/${j.maxUnlocks||DEFAULTS.maxUnlocks} interesados</span>
-    </div>
-    <p class="mt-2 text-sm text-muted">${esc(j.description)}</p>
-  </div>`).join('');
+  $('cl-list').innerHTML = jobs.map(j => {
+    const closed = j.status !== 'abierta';
+    return `<div class="card p-5 ${closed?'opacity-70':''}">
+      <div class="flex items-start justify-between gap-2">
+        <div><h3 class="font-bold text-navy">${esc(j.title)}</h3>
+          <p class="text-xs text-muted">${catName(j.categorySlug)} · ${esc(j.city||'CABA')}</p></div>
+        ${closed
+          ? `<span class="chip font-semibold text-accent">Resuelta ✓</span>`
+          : `<span class="chip">${j.unlocksCount||0}/${j.maxUnlocks||DEFAULTS.maxUnlocks} interesados</span>`}
+      </div>
+      <p class="mt-2 text-sm text-muted">${esc(j.description)}</p>
+      ${closed ? '' : `<div class="mt-3 flex justify-end">
+        <button class="btn btn-soft resolve" data-id="${j.id}">Ya conseguí profesional · cerrar</button></div>`}
+    </div>`;
+  }).join('');
+  document.querySelectorAll('.resolve').forEach(btn => btn.onclick = async () => {
+    if (!confirm('¿Cerrar esta solicitud? Dejará de aparecerles a los profesionales.')) return;
+    btn.disabled = true; btn.textContent = 'Cerrando…';
+    try { await updateDoc(doc(db,'jobs',btn.dataset.id), { status:'cerrada' }); renderClientePanel(); }
+    catch (e) { alert('No se pudo cerrar: ' + e.message); btn.disabled = false; btn.textContent = 'Ya conseguí profesional · cerrar'; }
+  });
 }
 
 // ── FEED PROFESIONAL ─────────────────────────────────────────────────────
@@ -569,7 +625,9 @@ async function renderAdmin() {
     <h2 class="mt-6 mb-3 text-lg font-bold text-navy">Profesionales</h2>
     <div id="ad-pros" class="card divide-y divide-line"><p class="p-4 text-muted">Cargando…</p></div>
     <h2 class="mt-8 mb-3 text-lg font-bold text-navy">Configuración de créditos</h2>
-    <div id="ad-cfg" class="card p-5"></div></div>`;
+    <div id="ad-cfg" class="card p-5"></div>
+    <h2 class="mt-8 mb-3 text-lg font-bold text-navy">Categorías de servicios</h2>
+    <div id="ad-cats" class="card p-5"></div></div>`;
 
   // Profesionales + sus wallets
   const pSnap = await getDocs(collection(db,'professionals'));
@@ -617,6 +675,37 @@ async function renderAdmin() {
     state.settings = { ...state.settings, ...cfg };
     alert('Configuración guardada.');
   };
+
+  // Gestión de categorías
+  const renderCats = () => {
+    $('ad-cats').innerHTML = `
+      ${CAT_GROUPS.map(([g,label])=>{ const items=catsByGroup(g); return `
+        <p class="mt-1 text-xs font-bold uppercase tracking-wide text-muted">${label}</p>
+        <div class="mb-3 mt-2 flex flex-wrap gap-2">
+          ${items.map(c=>`<span class="chip flex items-center gap-2">${c.icon||'🛠️'} ${esc(c.name)}
+            <button class="cat-del font-bold text-red-500" data-slug="${c.slug}" title="Quitar">✕</button></span>`).join('') || '<span class="text-xs text-muted">—</span>'}
+        </div>`; }).join('')}
+      <div class="mt-4 grid gap-2 sm:grid-cols-[1.4fr_1.2fr_auto_auto]">
+        <input id="cat_name" class="input" placeholder="Nombre (ej: Tapicero)">
+        <select id="cat_group" class="input">${CAT_GROUPS.map(([g,label])=>`<option value="${g}">${label}</option>`).join('')}</select>
+        <input id="cat_icon" class="input w-20" placeholder="🛠️" maxlength="4">
+        <button id="cat_add" class="btn btn-primary grad">Agregar</button>
+      </div>
+      <p class="mt-2 text-xs text-muted">Se guarda al instante. Quitar una categoría no afecta solicitudes ni perfiles ya creados.</p>`;
+    document.querySelectorAll('.cat-del').forEach(b => b.onclick = async () => {
+      if (!confirm('¿Quitar esta categoría?')) return;
+      CATEGORIES = CATEGORIES.filter(c => c.slug !== b.dataset.slug);
+      await saveCategories(); renderCats();
+    });
+    $('cat_add').onclick = async () => {
+      const name = $('cat_name').value.trim(); if (!name) return alert('Poné un nombre.');
+      const slug = slugify(name); if (!slug) return alert('Nombre inválido.');
+      if (CATEGORIES.some(c => c.slug === slug)) return alert('Ya existe una categoría parecida.');
+      CATEGORIES.push({ slug, name, group: $('cat_group').value, icon: ($('cat_icon').value.trim() || '🛠️') });
+      await saveCategories(); renderCats();
+    };
+  };
+  renderCats();
 }
 
 async function adminAdjust(proId, amount) {
@@ -644,14 +733,17 @@ async function renderProProfile() {
     <p class="mt-1 text-muted">Completá tu perfil para aparecer en el listado que ven los clientes.
       ${verif ? '<span class="text-accent font-semibold">Estás verificado ✓</span>' : 'Tu perfil aparece una vez que el equipo lo verifica.'}</p>
     <form id="pf" class="card mt-6 space-y-5 p-6">
-      <div><label class="label">Título / oficio principal</label><input id="p_head" class="input" value="${esc(p.headline||'')}" placeholder="Ej: Plomero matriculado · 15 años"></div>
+      <div><label class="label">Título / especialidad principal</label><input id="p_head" class="input" value="${esc(p.headline||'')}" placeholder="Ej: Plomero matriculado · 15 años"></div>
       <div><label class="label">Zona / barrio donde trabajás</label><input id="p_city" class="input" value="${esc(p.city||'')}" placeholder="Ej: Floresta, CABA"></div>
       <div><label class="label">WhatsApp</label><input id="p_wa" class="input" value="${esc(p.whatsapp||'')}" placeholder="Ej: 11 5555 5555"></div>
       <div><label class="label">Sobre vos</label><textarea id="p_bio" rows="3" class="input" placeholder="Contá tu experiencia y qué trabajos hacés.">${esc(p.bio||'')}</textarea></div>
-      <div><span class="label">Oficios que realizás</span>
-        <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          ${CATEGORIES.map(c=>`<label class="chip cursor-pointer"><input type="checkbox" class="catck" value="${c[0]}" ${sel.has(c[0])?'checked':''}> ${c[1]}</label>`).join('')}
-        </div></div>
+      <div><span class="label">Servicios que ofrecés</span>
+        ${CAT_GROUPS.map(([g,label])=>{ const items=catsByGroup(g); if(!items.length) return ''; return `
+          <p class="mt-3 text-xs font-bold uppercase tracking-wide text-muted">${label}</p>
+          <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            ${items.map(c=>`<label class="chip cursor-pointer"><input type="checkbox" class="catck" value="${c.slug}" ${sel.has(c.slug)?'checked':''}> ${c.name}</label>`).join('')}
+          </div>`; }).join('')}
+      </div>
       <p id="pf-msg" class="text-sm text-accent" hidden></p>
       <button class="btn btn-primary grad w-full py-3">Guardar perfil</button>
     </form></div>`;
@@ -672,7 +764,7 @@ async function renderPool() {
     <h1 class="text-2xl font-extrabold text-navy">Profesionales</h1>
     <p class="mt-1 text-muted">Mirá quiénes están inscriptos y publicá tu solicitud para que te contacten.</p>
     <div class="card mt-5 grid gap-3 p-4 sm:grid-cols-3">
-      <div><label class="label">Oficio</label><select id="pl_cat" class="input"><option value="">Todos</option>${CATEGORIES.map(c=>`<option value="${c[0]}">${c[1]}</option>`).join('')}</select></div>
+      <div><label class="label">Servicio</label><select id="pl_cat" class="input"><option value="">Todos</option>${catOptions()}</select></div>
       <div><label class="label">Zona</label><input id="pl_city" class="input" placeholder="Ej: Floresta"></div>
       <div class="flex items-end"><button id="pl_btn" class="btn btn-primary grad w-full">Filtrar</button></div>
     </div>
@@ -692,7 +784,7 @@ async function renderPool() {
           <div><p class="font-bold text-navy">${esc(p.fullName||'Profesional')}</p>
             <p class="text-xs font-semibold text-accent">✓ Verificado</p></div>
         </div>
-        <p class="mt-2 text-sm text-muted">${esc(p.headline||'Profesional de oficios')}</p>
+        <p class="mt-2 text-sm text-muted">${esc(p.headline||'Profesional')}</p>
         <div class="mt-2 flex flex-wrap gap-1.5">${(p.categories||[]).slice(0,4).map(c=>`<span class="chip">${catName(c)}</span>`).join('')}</div>
         <p class="mt-2 text-xs text-muted">📍 ${esc(p.city||'—')}</p>
         <a href="#/publicar" class="btn btn-soft mt-3 w-full">Publicar solicitud</a>
@@ -705,6 +797,7 @@ async function renderPool() {
 // ── Auth state ───────────────────────────────────────────────────────────
 onAuthStateChanged(auth, async (user) => {
   state.user = user;
+  await loadCategories();
   if (user) {
     const p = await getDoc(doc(db,'users',user.uid));
     state.profile = p.exists() ? p.data() : { role:'cliente' };
